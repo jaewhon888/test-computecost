@@ -1,0 +1,408 @@
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}คำนวณต้นทุนแบบ Real-time - Restaurant Management{% endblock %}
+{% block page_title %}คำนวณต้นทุนอาหารแบบ Real-time{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>💰 คำนวณต้นทุนอาหารตามมาตรฐานสากล</h3>
+    <a href="/cost-calculation/" class="btn btn-secondary">← กลับไปหน้าสรุป</a>
+</div>
+
+<!-- คำอธิบายมาตรฐาน -->
+<div class="card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); margin-bottom: 20px;">
+    <h4>📊 ระบบคำนวณต้นทุนแบบมาตรฐานสากล (International Standard)</h4>
+    <div style="font-size: 14px; line-height: 1.8;">
+        <p><strong>ระบบ Real-time:</strong> เปลี่ยนข้อมูลใดๆ ระบบจะคำนวณทันทีอัตโนมัติ</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <strong>🥗 Food Cost %</strong><br>
+                มาตรฐาน: 25-35%<br>
+                <small>ต้นทุนอาหารต่อราคาขาย</small>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                <strong>🗑️ Waste %</strong><br>
+                มาตรฐาน: 5-10%<br>
+                <small>การสูญเสียในการปรุง</small>
+            </div>
+            <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <strong>💼 Overhead</strong><br>
+                ค่าใช้จ่ายอื่นๆ<br>
+                <small>ค่าแรง, ค่าเช่า, etc.</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ฟอร์มคำนวณต้นทุน -->
+<div class="card">
+    <h4>📝 กรอกข้อมูลต้นทุน (คำนวณทันทีเมื่อมีการเปลี่ยนแปลง)</h4>
+    <form id="cost-form">
+        {% csrf_token %}
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            <!-- คอลัมน์ซ้าย: เลือกสูตรและพารามิเตอร์หลัก -->
+            <div>
+                <h5>🍽️ เลือกสูตรอาหาร</h5>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    {{ form.recipe.label_tag }}
+                    {{ form.recipe }}
+                </div>
+                
+                <h5>⚙️ ตั้งค่าการคำนวณ</h5>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    {{ form.waste_percent.label_tag }}
+                    {{ form.waste_percent }}
+                    <small style="color: #666;">{{ form.waste_percent.help_text }}</small>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    {{ form.target_food_cost_percent.label_tag }}
+                    {{ form.target_food_cost_percent }}
+                    <small style="color: #666;">{{ form.target_food_cost_percent.help_text }}</small>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    {{ form.actual_selling_price.label_tag }}
+                    {{ form.actual_selling_price }}
+                    <small style="color: #666;">{{ form.actual_selling_price.help_text }}</small>
+                </div>
+            </div>
+            
+            <!-- คอลัมน์ขวา: Overhead Costs -->
+            <div>
+                <h5>💼 ค่า Overhead (ค่าใช้จ่ายอื่นๆ)</h5>
+                <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+                    ค่าใช้จ่ายที่ไม่ใช่วัตถุดิบโดยตรง แต่จำเป็นต่อการดำเนินธุรกิจ
+                </p>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_utilities.label_tag }}
+                    {{ form.overhead_utilities }}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_labor.label_tag }}
+                    {{ form.overhead_labor }}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_rent.label_tag }}
+                    {{ form.overhead_rent }}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_depreciation.label_tag }}
+                    {{ form.overhead_depreciation }}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_marketing.label_tag }}
+                    {{ form.overhead_marketing }}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 10px;">
+                    {{ form.overhead_delivery.label_tag }}
+                    {{ form.overhead_delivery }}
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
+            💡 ระบบจะคำนวณทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล (Real-time Calculation)
+        </div>
+    </form>
+</div>
+
+<!-- ผลลัพธ์การคำนวณแบบ Real-time -->
+<div id="result-container" class="card" style="margin-top: 20px; display: none;">
+    <h4>📊 ผลการคำนวณต้นทุนแบบ Real-time</h4>
+    
+    <!-- สรุปตัวเลขหลัก -->
+    <div id="summary-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <!-- จะถูกเติมด้วย JavaScript -->
+    </div>
+    
+    <!-- รายละเอียดการคำนวณ -->
+    <div id="calculation-details">
+        <!-- จะถูกเติมด้วย JavaScript -->
+    </div>
+    
+    <!-- ตารางวัตถุดิบ -->
+    <div id="ingredients-table">
+        <!-- จะถูกเติมด้วย JavaScript -->
+    </div>
+</div>
+
+<!-- ข้อมูลสูตรทั้งหมด -->
+<div class="card" style="margin-top: 20px;">
+    <h4>📋 สูตรอาหารทั้งหมดในระบบ</h4>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="padding: 12px; text-align: left;">ชื่อสูตร</th>
+                <th style="padding: 12px; text-align: left;">สาขา</th>
+                <th style="padding: 12px; text-align: left;">จำนวนวัตถุดิบ</th>
+                <th style="padding: 12px; text-align: center;">จัดการ</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for recipe in recipes %}
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px;"><strong>{{ recipe.name }}</strong></td>
+                <td style="padding: 12px;">{{ recipe.branch.name }}</td>
+                <td style="padding: 12px;">{{ recipe.items.count }} รายการ</td>
+                <td style="padding: 12px; text-align: center;">
+                    <button class="btn btn-small" onclick="loadRecipe({{ recipe.id }})">เลือกสูตรนี้</button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="padding: 30px; text-align: center; color: #666;">
+                    ยังไม่มีสูตรอาหารในระบบ <a href="/recipes/">สร้างสูตรใหม่</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ฟังก์ชันอ่าน CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // ตัวแปรเก็บ timeout สำหรับ debounce
+    let calculateTimeout = null;
+    
+    // ฟังก์ชันคำนวณต้นทุนแบบ Real-time (มี debounce)
+    function calculateCost() {
+        console.log('calculateCost() called');
+        
+        const recipeId = document.getElementById('id_recipe').value;
+        if (!recipeId) {
+            console.log('No recipe selected');
+            return;
+        }
+        
+        // Debounce: รอ 300ms หลังจากการพิมพ์/เปลี่ยนแปลงสุดท้าย
+        if (calculateTimeout) {
+            clearTimeout(calculateTimeout);
+        }
+        
+        calculateTimeout = setTimeout(() => {
+            console.log('Executing calculation for recipe:', recipeId);
+            
+            // เก็บข้อมูลจากฟอร์ม
+            const formData = {
+                waste_percent: parseFloat(document.getElementById('id_waste_percent').value) || 5.0,
+                target_food_cost_percent: parseFloat(document.getElementById('id_target_food_cost_percent').value) || 30.0,
+                overhead_utilities: parseFloat(document.getElementById('id_overhead_utilities').value) || 0,
+                overhead_labor: parseFloat(document.getElementById('id_overhead_labor').value) || 0,
+                overhead_rent: parseFloat(document.getElementById('id_overhead_rent').value) || 0,
+                overhead_depreciation: parseFloat(document.getElementById('id_overhead_depreciation').value) || 0,
+                overhead_marketing: parseFloat(document.getElementById('id_overhead_marketing').value) || 0,
+                overhead_delivery: parseFloat(document.getElementById('id_overhead_delivery').value) || 0,
+            };
+            
+            const actualSellingPrice = document.getElementById('id_actual_selling_price').value;
+            if (actualSellingPrice) {
+                formData.actual_selling_price = parseFloat(actualSellingPrice);
+            }
+            
+            console.log('Sending data:', formData);
+            
+            // เรียก API แบบ AJAX
+            fetch('/api/recipes/' + recipeId + '/calculate_cost/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Received data:', data);
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+            });
+        }, 300);
+    }
+    
+    // ฟังก์ชันแสดงผลลัพธ์
+    function displayResults(data) {
+        console.log('Displaying results:', data);
+        
+        const container = document.getElementById('result-container');
+        container.style.display = 'block';
+        
+        // สร้าง Summary Cards
+        const totalIngredientCost = data.total_ingredient_cost ? data.total_ingredient_cost.toFixed(2) : '0.00';
+        const totalCostWithOverhead = data.total_cost_with_overhead ? data.total_cost_with_overhead.toFixed(2) : '0.00';
+        const suggestedPrice = data.suggested_price ? data.suggested_price.toFixed(2) : '0.00';
+        const actualFoodCostPercent = data.actual_food_cost_percent !== undefined ? data.actual_food_cost_percent.toFixed(1) + '%' : 'N/A';
+        
+        const summaryHTML = '' +
+            '<div style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); padding: 20px; border-radius: 8px; color: white;">' +
+                '<h3 style="margin: 0; font-size: 32px;">฿' + totalIngredientCost + '</h3>' +
+                '<p style="margin: 5px 0 0 0;">ต้นทุนวัตถุดิบ</p>' +
+            '</div>' +
+            '<div style="background: linear-gradient(135deg, #e74c3c 0%, #ff7675 100%); padding: 20px; border-radius: 8px; color: white;">' +
+                '<h3 style="margin: 0; font-size: 32px;">฿' + totalCostWithOverhead + '</h3>' +
+                '<p style="margin: 5px 0 0 0;">ต้นทุนรวม (รวม Overhead)</p>' +
+            '</div>' +
+            '<div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); padding: 20px; border-radius: 8px; color: white;">' +
+                '<h3 style="margin: 0; font-size: 32px;">฿' + suggestedPrice + '</h3>' +
+                '<p style="margin: 5px 0 0 0;">ราคาขายแนะนำ</p>' +
+            '</div>' +
+            '<div style="background: linear-gradient(135deg, #3498db 0%, #5dade2 100%); padding: 20px; border-radius: 8px; color: white;">' +
+                '<h3 style="margin: 0; font-size: 32px;">' + actualFoodCostPercent + '</h3>' +
+                '<p style="margin: 5px 0 0 0;">Food Cost จริง</p>' +
+            '</div>';
+        
+        document.getElementById('summary-cards').innerHTML = summaryHTML;
+        
+        // แสดงขั้นตอนการคำนวณ
+        let stepsHTML = '<div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin-top: 20px;">' +
+            '<h5>📐 ขั้นตอนการคำนวณ (Step-by-Step)</h5>' +
+            '<ol style="line-height: 2;">';
+        
+        if (data.calculation_steps && data.calculation_steps.length > 0) {
+            for (let i = 0; i < data.calculation_steps.length; i++) {
+                stepsHTML += '<li>' + data.calculation_steps[i] + '</li>';
+            }
+        }
+        
+        stepsHTML += '</ol></div>';
+        document.getElementById('calculation-details').innerHTML = stepsHTML;
+        
+        // แสดงตารางวัตถุดิบ
+        if (data.items && data.items.length > 0) {
+            let tableHTML = '<div style="margin-top: 20px;">' +
+                '<h5>📦 รายละเอียดวัตถุดิบ</h5>' +
+                '<table style="width: 100%; border-collapse: collapse;">' +
+                    '<thead><tr style="background: #f8f9fa;">' +
+                        '<th style="padding: 12px;">วัตถุดิบ</th>' +
+                        '<th style="padding: 12px;">จำนวน</th>' +
+                        '<th style="padding: 12px;">หน่วย</th>' +
+                        '<th style="padding: 12px;">ราคาต่อหน่วย</th>' +
+                        '<th style="padding: 12px;">ต้นทุน</th>' +
+                    '</tr></thead><tbody>';
+            
+            for (let i = 0; i < data.items.length; i++) {
+                const item = data.items[i];
+                const cost = item.cost ? item.cost.toFixed(2) : '0.00';
+                const pricePerUnit = item.price_per_unit ? item.price_per_unit.toFixed(4) : '0.0000';
+                
+                tableHTML += '<tr style="border-bottom: 1px solid #ddd;">' +
+                    '<td style="padding: 12px;">' + item.ingredient_name + '</td>' +
+                    '<td style="padding: 12px;">' + item.quantity + '</td>' +
+                    '<td style="padding: 12px;">' + item.unit + '</td>' +
+                    '<td style="padding: 12px;">฿' + pricePerUnit + '</td>' +
+                    '<td style="padding: 12px; font-weight: bold;">฿' + cost + '</td>' +
+                '</tr>';
+            }
+            
+            tableHTML += '<tr style="font-weight: bold; background: #f0f0f0;">' +
+                '<td colspan="4" style="padding: 12px; text-align: right;">รวม:</td>' +
+                '<td style="padding: 12px;">฿' + totalIngredientCost + '</td>' +
+            '</tr></tbody></table></div>';
+            
+            document.getElementById('ingredients-table').innerHTML = tableHTML;
+        }
+        
+        // Scroll ไปที่ผลลัพธ์
+        container.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // ฟังก์ชันเลือกสูตรจากตาราง
+    function loadRecipe(recipeId) {
+        document.getElementById('id_recipe').value = recipeId;
+        calculateCost();
+    }
+    
+    // ผูก event listeners ทุกช่อง input และ select ให้คำนวณทันทีเมื่อมีการเปลี่ยนแปลง
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM fully loaded');
+        
+        // ผูก event กับทุก input และ select ในฟอร์ม
+        const inputs = document.querySelectorAll('#cost-form input, #cost-form select');
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                calculateCost();
+            });
+            input.addEventListener('change', function() {
+                calculateCost();
+            });
+        });
+        
+        // ถ้ามีการเลือกสูตรไว้แล้ว ให้คำนวณทันที
+        const recipeSelect = document.getElementById('id_recipe');
+        if (recipeSelect && recipeSelect.value) {
+            console.log('Recipe pre-selected, calculating...');
+            calculateCost();
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 14px;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    #summary-cards > div {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}

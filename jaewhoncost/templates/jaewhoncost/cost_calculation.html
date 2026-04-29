@@ -1,0 +1,342 @@
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}คำนวณต้นทุน - Restaurant Management{% endblock %}
+{% block page_title %}คำนวณต้นทุนเมนู (Cost Calculation){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>💰 คำนวณต้นทุนเมนู</h3>
+    <a href="/recipes/" class="btn btn-secondary">← กลับไปหน้า Recipes</a>
+</div>
+
+<!-- คำอธิบายมาตรฐาน -->
+<div class="card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
+    <h4>📊 ระบบคำนวณต้นทุนแบบมาตรฐานสากล</h4>
+    <div style="font-size: 14px; line-height: 1.8;">
+        <p><strong>สูตรการคำนวณ:</strong></p>
+        <ol style="margin-left: 20px;">
+            <li><strong>ต้นทุนวัตถุดิบ (Ingredient Cost)</strong> = Σ (ปริมาณ × ราคาต่อหน่วย)</li>
+            <li><strong>ต้นทุนที่มีผล (Effective Cost)</strong> = ต้นทุนวัตถุดิบ ÷ (1 - Waste%)</li>
+            <li><strong>ต้นทุนรวม (Total Cost)</strong> = Effective Cost + Overhead Costs</li>
+            <li><strong>กำไร (Profit)</strong> = ราคาขาย - ต้นทุนรวม</li>
+            <li><strong>อัตราต้นทุนอาหาร (Food Cost %)</strong> = (ต้นทุนรวม ÷ ราคาขาย) × 100</li>
+        </ol>
+        <p style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px;">
+            <strong>🌍 มาตรฐาน:</strong> {{ standard_reference }} | ค่า Overhead รวม: ฿{{ total_overhead|floatformat:2 }}
+        </p>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h4>📊 สรุปต้นทุนแต่ละเมนู</h4>
+    <table id="cost-table">
+        <thead>
+            <tr>
+                <th>เมนู (สูตร)</th>
+                <th>ชื่อเมนูขาย</th>
+                <th>สาขา</th>
+                <th>ต้นทุนวัตถุดิบ</th>
+                <th>ต้นทุนรวม (รวม Overhead)</th>
+                <th>ราคาขายจริง</th>
+                <th>กำไร</th>
+                <th>Food Cost %</th>
+                <th>รายละเอียด</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cost_data %}
+            <tr>
+                <td><strong>{{ item.recipe_name }}</strong></td>
+                <td>{{ item.menu_name }}</td>
+                <td>{{ item.branch_name }}</td>
+                <td><span style="color: #e74c3c; font-weight: bold;">฿{{ item.total_ingredient_cost|floatformat:2 }}</span></td>
+                <td><span style="color: #e74c3c; font-weight: bold;">฿{{ item.total_cost_with_overhead|floatformat:2 }}</span></td>
+                <td>
+                    {% if item.actual_selling_price > 0 %}
+                        <span style="color: #27ae60; font-weight: bold;">฿{{ item.actual_selling_price|floatformat:2 }}</span>
+                    {% else %}
+                        <span style="color: #999;">ไม่มีเมนู</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.actual_selling_price > 0 %}
+                        <span style="color: {% if item.actual_profit > 0 %}#27ae60{% else %}#e74c3c{% endif %}; font-weight: bold;">
+                            ฿{{ item.actual_profit|floatformat:2 }}
+                            <br><small>({{ item.actual_profit_percent|floatformat:1 }}%)</small>
+                        </span>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if item.actual_selling_price > 0 %}
+                        <span style="color: {% if item.actual_food_cost_percent <= 30 %}#27ae60{% elif item.actual_food_cost_percent <= 35 %}#f39c12{% else %}#e74c3c{% endif %}; font-weight: bold;">
+                            {{ item.actual_food_cost_percent|floatformat:1 }}%
+                        </span>
+                    {% else %}
+                        <span style="color: #999;">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn btn-small" onclick="toggleDetail({{ item.recipe_id }})">ซ่อน/แสดงรายละเอียด</button>
+                </td>
+            </tr>
+            <tr id="detail-{{ item.recipe_id }}" style="display: none;">
+                <td colspan="9">
+                    <div style="padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        
+                        <!-- ขั้นตอนการคำนวณแบบละเอียด -->
+                        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid #4caf50;">
+                            <h5>📐 ขั้นตอนการคำนวณต้นทุน (Step-by-Step)</h5>
+                            <div style="font-size: 14px; margin-top: 15px;">
+                                <ol style="line-height: 2;">
+                                    {% for step in item.calculation_steps %}
+                                    <li>{{ step }}</li>
+                                    {% endfor %}
+                                </ol>
+                                
+                                <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 5px; border-left: 4px solid #ffc107;">
+                                    <h6>📊 สรุปตัวเลข:</h6>
+                                    <ul style="margin: 10px 0 0 20px; line-height: 1.8;">
+                                        <li>ต้นทุนวัตถุดิบ (Ingredient Cost): <strong>฿{{ item.total_ingredient_cost|floatformat:2 }}</strong> ({{ item.items|length }} รายการ)</li>
+                                        <li>เปอร์เซ็นต์ Waste (เสียเปล่า): {{ item.waste_percent }}%</li>
+                                        <li>ต้นทุนที่มีผล (Effective Cost): <strong>฿{{ item.effective_cost|floatformat:2 }}</strong></li>
+                                        <li>ต้นทุนรวม (Total Cost + Overhead): <strong>฿{{ item.total_cost_with_overhead|floatformat:2 }}</strong></li>
+                                        <li>เปอร์เซ็นต์ต้นทุนอาหารมาตรฐาน: {{ item.standard_food_cost_percent }}%</li>
+                                        <li>ราคาขายที่แนะนำ (Suggested Price): <strong>฿{{ item.suggested_price|floatformat:2 }}</strong></li>
+                                        {% if item.actual_selling_price > 0 %}
+                                        <li>ราคาขายจริง: <strong>฿{{ item.actual_selling_price|floatformat:2 }}</strong></li>
+                                        <li>กำไรจริง: <strong style="color: {% if item.actual_profit > 0 %}#27ae60{% else %}#e74c3c{% endif %};">฿{{ item.actual_profit|floatformat:2 }} ({{ item.actual_profit_percent|floatformat:1 }}%)</strong></li>
+                                        <li>อัตราต้นทุนอาหารจริง: <strong style="color: {% if item.actual_food_cost_percent <= 30 %}#27ae60{% elif item.actual_food_cost_percent <= 35 %}#f39c12{% else %}#e74c3c{% endif %};">{{ item.actual_food_cost_percent|floatformat:1 }}%</strong></li>
+                                        {% endif %}
+                                    </ul>
+                                </div>
+                                
+                                <div style="margin-top: 15px; font-size: 13px; color: #666; padding: 10px; background: #fff;">
+                                    <strong>🔗 อ้างอิง:</strong> {{ item.reference }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- รายละเอียด Overhead Costs -->
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h5>💼 ค่า Overhead (ค่าใช้จ่ายอื่นๆ)</h5>
+                            <table style="width: 100%; font-size: 14px; margin-top: 10px;">
+                                <thead>
+                                    <tr>
+                                        <th>รายการ</th>
+                                        <th>จำนวนเงิน (บาท)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for key, value in item.overhead_costs.items %}
+                                    <tr>
+                                        <td>
+                                            {% if key == 'utilities' %}💡 ค่าน้ำค่าไฟ (Utilities)
+                                            {% elif key == 'labor' %}👷 ค่าแรง (Labor)
+                                            {% elif key == 'rent' %}🏠 ค่าเช่า (Rent)
+                                            {% elif key == 'depreciation' %}📉 ค่าเสื่อมราคา (Depreciation)
+                                            {% elif key == 'marketing' %}📢 ค่าการตลาด (Marketing)
+                                            {% elif key == 'delivery' %}🛵 ค่าส่ง (Line Man Delivery)
+                                            {% endif %}
+                                        </td>
+                                        <td>฿{{ value|floatformat:2 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    <tr style="font-weight: bold; background: #fff3cd;">
+                                        <td>รวม Overhead</td>
+                                        <td>฿{{ item.total_overhead|floatformat:2 }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- รายละเอียดวัตถุดิบ -->
+                        <h5>📦 รายละเอียดวัตถุดิบ (ต่อจาน):</h5>
+                        <table style="width: 100%; font-size: 14px;">
+                            <thead>
+                                <tr>
+                                    <th>วัตถุดิบ</th>
+                                    <th>จำนวน</th>
+                                    <th>หน่วย</th>
+                                    <th>ราคาต่อหน่วย</th>
+                                    <th>ต้นทุน (บาท)</th>
+                                    <th>อัพเดทล่าสุด</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ingredient in item.items %}
+                                <tr>
+                                    <td>{{ ingredient.ingredient_name }}</td>
+                                    <td>{{ ingredient.quantity }}</td>
+                                    <td>{{ ingredient.unit }}</td>
+                                    <td>฿{{ ingredient.price_per_unit|floatformat:4 }}</td>
+                                    <td>฿{{ ingredient.cost|floatformat:2 }}</td>
+                                    <td>{{ ingredient.updated_at }}</td>
+                                </tr>
+                                {% endfor %}
+                                <tr style="font-weight: bold; background: #f0f0f0;">
+                                    <td colspan="4" style="text-align: right;">รวมต้นทุนวัตถุดิบ:</td>
+                                    <td>฿{{ item.total_ingredient_cost|floatformat:2 }}</td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <div style="margin-top: 15px; padding: 10px; background: #d1ecf1; border-radius: 5px; font-size: 13px;">
+                            <strong>🌍 มาตรฐานสากล:</strong> {{ standard_reference }}
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 30px; color: #666;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">🍽️</div>
+                    <h4>ยังไม่มีข้อมูลสูตรอาหาร</h4>
+                    <p>เริ่มสร้างสูตรอาหารในหน้า <a href="/recipes/">Recipes</a> ก่อนนะครับ</p>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <h4>📈 สถิติรวม</h4>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number" id="total-recipes">{{ cost_data|length }}</div>
+            <div class="stat-label">จำนวนสูตร</div>
+        </div>
+        <div class="stat-item" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%); color: white;">
+            <div class="stat-number" id="avg-ingredient-cost">
+                {% if cost_data %}
+                ฿{% widthratio 0 1 0 %}
+                {% endif %}
+            </div>
+            <div class="stat-label">ต้นทุนวัตถุดิบเฉลี่ย</div>
+        </div>
+        <div class="stat-item" style="background: linear-gradient(135deg, #e74c3c 0%, #ff7675 100%); color: white;">
+            <div class="stat-number" id="avg-total-cost">
+                {% if cost_data %}
+                ฿{% widthratio 0 1 0 %}
+                {% endif %}
+            </div>
+            <div class="stat-label">ต้นทุนรวมเฉลี่ย</div>
+        </div>
+        <div class="stat-item" style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white;">
+            <div class="stat-number" id="avg-food-cost-percent">
+                {% if cost_data %}
+                {% widthratio 0 1 0 %}%
+                {% endif %}
+            </div>
+            <div class="stat-label">Food Cost เฉลี่ย</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleDetail(id) {
+        const row = document.getElementById('detail-' + id);
+        if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+        } else {
+            row.style.display = 'none';
+        }
+    }
+    
+    // คำนวณสถิติเฉลี่ย
+    document.addEventListener('DOMContentLoaded', function() {
+        let totalIngredientCost = 0;
+        let totalCostWithOverhead = 0;
+        let totalFoodCostPercent = 0;
+        let count = 0;
+        
+        {% for item in cost_data %}
+        totalIngredientCost += {{ item.total_ingredient_cost }};
+        totalCostWithOverhead += {{ item.total_cost_with_overhead }};
+        {% if item.actual_selling_price > 0 %}
+        totalFoodCostPercent += {{ item.actual_food_cost_percent }};
+        {% endif %}
+        count++;
+        {% endfor %}
+        
+        if (count > 0) {
+            const avgIngredientCost = totalIngredientCost / count;
+            const avgTotalCost = totalCostWithOverhead / count;
+            const avgFoodCostPercent = totalFoodCostPercent / count;
+            
+            document.getElementById('avg-ingredient-cost').textContent = '฿' + avgIngredientCost.toFixed(2);
+            document.getElementById('avg-total-cost').textContent = '฿' + avgTotalCost.toFixed(2);
+            document.getElementById('avg-food-cost-percent').textContent = avgFoodCostPercent.toFixed(1) + '%';
+        }
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .stat-item {
+        background: linear-gradient(135deg, #ffd700 0%, #ffed8a 100%);
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        color: #1a237e;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .stat-label {
+        font-size: 14px;
+        opacity: 0.8;
+    }
+    
+    #cost-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+    
+    #cost-table th, #cost-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    #cost-table th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    #cost-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    #cost-table tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+    
+    .btn-small {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}

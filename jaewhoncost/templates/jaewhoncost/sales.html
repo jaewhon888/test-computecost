@@ -1,0 +1,248 @@
+     1|{% extends 'jaewhoncost/base.html' %}
+     2|
+     3|{% block title %}Sales - Restaurant Management{% endblock %}
+     4|{% block page_title %}Sales Report{% endblock %}
+     5|
+     6|{% block content %}
+     7|<div class="page-header">
+     8|    <h3>💰 Sales Report</h3>
+     9|    <div class="filters">
+    10|        <select id="branchFilter" onchange="loadSales()">
+    11|            <option value="">All Branches</option>
+    12|        </select>
+    13|        <input type="date" id="dateFilter" onchange="loadSales()">
+    14|    </div>
+    15|</div>
+    16|
+    17|<div class="card">
+    18|    <h3>📊 Sales Summary</h3>
+    19|    <div class="stats-grid">
+    20|        <div class="stat-item">
+    21|            <div class="stat-number" id="total-sales-amount">฿0</div>
+    22|            <div class="stat-label">Total Sales</div>
+    23|        </div>
+    24|        <div class="stat-item">
+    25|            <div class="stat-number" id="total-transactions">0</div>
+    26|            <div class="stat-label">Transactions</div>
+    27|        </div>
+    28|        <div class="stat-item">
+    29|            <div class="stat-number" id="avg-transaction">฿0</div>
+    30|            <div class="stat-label">Avg Transaction</div>
+    31|        </div>
+    32|    </div>
+    33|</div>
+    34|
+    35|<div class="card">
+    36|    <h3>📈 Daily Sales Chart</h3>
+    37|    <canvas id="salesChart"></canvas>
+    38|</div>
+    39|
+    40|<div class="card">
+    41|    <h3>📋 Sales Details</h3>
+    42|    <table id="sales-table">
+    43|        <thead>
+    44|            <tr>
+    45|                <th>Date</th>
+    46|                <th>Menu</th>
+    47|                <th>Branch</th>
+    48|                <th>Quantity</th>
+    49|                <th>Total Price</th>
+    50|            </tr>
+    51|        </thead>
+    52|        <tbody>
+    53|            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+    54|        </tbody>
+    55|    </table>
+    56|</div>
+    57|
+    58|<style>
+    59|    .page-header {
+    60|        display: flex;
+    61|        justify-content: space-between;
+    62|        align-items: center;
+    63|        margin-bottom: 20px;
+    64|    }
+    65|
+    66|    .filters {
+    67|        display: flex;
+    68|        gap: 10px;
+    69|    }
+    70|
+    71|    .filters select,
+    72|    .filters input {
+    73|        padding: 8px 12px;
+    74|        border: 1px solid var(--light-gold);
+    75|        border-radius: 4px;
+    76|    }
+    77|
+    78|    .stats-grid {
+    79|        display: grid;
+    80|        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    81|        gap: 15px;
+    82|        margin-top: 15px;
+    83|    }
+    84|
+    85|    .stat-item {
+    86|        background: linear-gradient(135deg, var(--gold) 0%, var(--light-gold) 100%);
+    87|        padding: 20px;
+    88|        border-radius: 8px;
+    89|        text-align: center;
+    90|        color: var(--navy);
+    91|    }
+    92|
+    93|    .stat-number {
+    94|        font-size: 28px;
+    95|        font-weight: bold;
+    96|        margin-bottom: 10px;
+    97|    }
+    98|
+    99|    .stat-label {
+   100|        font-size: 14px;
+   101|        opacity: 0.8;
+   102|    }
+   103|</style>
+   104|
+   105|<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   106|<script>
+   107|    const API_BASE = window.location.origin + '/api';
+   108|    let salesChart = null;
+   109|
+   110|    async function loadBranches( ) {
+   111|        try {
+   112|            const response = await fetch(`${API_BASE}/branches/`);
+   113|            const branches = await response.json();
+   114|            const select = document.getElementById('branchFilter');
+   115|            
+   116|            branches.forEach(branch => {
+   117|                const option = document.createElement('option');
+   118|                option.value = branch.id;
+   119|                option.textContent = branch.name;
+   120|                select.appendChild(option);
+   121|            });
+   122|        } catch (error) {
+   123|            console.error('Error loading branches:', error);
+   124|        }
+   125|    }
+   126|
+   127|    async function loadSales() {
+   128|        try {
+   129|            const branchId = document.getElementById('branchFilter').value;
+   130|            const dateFilter = document.getElementById('dateFilter').value;
+   131|            
+   132|            let url = `${API_BASE}/sales/`;
+   133|            if (branchId) url += `?branch_id=${branchId}`;
+   134|
+   135|            const response = await fetch(url);
+   136|            const sales = await response.json();
+   137|
+   138|            // Filter by date if provided
+   139|            let filteredSales = sales;
+   140|            if (dateFilter) {
+   141|                filteredSales = sales.filter(sale => {
+   142|                    const saleDate = new Date(sale.sale_date).toISOString().split('T')[0];
+   143|                    return saleDate === dateFilter;
+   144|                });
+   145|            }
+   146|
+   147|            // Update Summary
+   148|            const totalAmount = filteredSales.reduce((sum, s) => sum + parseFloat(s.total_price), 0);
+   149|            document.getElementById('total-sales-amount').textContent = `฿${totalAmount.toFixed(2)}`;
+   150|            document.getElementById('total-transactions').textContent = filteredSales.length;
+   151|            document.getElementById('avg-transaction').textContent = `฿${(totalAmount / filteredSales.length || 0).toFixed(2)}`;
+   152|
+   153|            // Update Table
+   154|            const tbody = document.querySelector('#sales-table tbody');
+   155|            tbody.innerHTML = '';
+   156|
+   157|            filteredSales.forEach(sale => {
+   158|                const row = tbody.insertRow();
+   159|                row.innerHTML = `
+   160|                    <td>${new Date(sale.sale_date).toLocaleDateString('th-TH')}</td>
+   161|                    <td>${sale.menu_name}</td>
+   162|                    <td>${sale.branch_name}</td>
+   163|                    <td>${sale.quantity}</td>
+   164|                    <td>฿${sale.total_price}</td>
+   165|                `;
+   166|            });
+   167|
+   168|            if (filteredSales.length === 0) {
+   169|                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No sales data</td></tr>';
+   170|            }
+   171|
+   172|            // Update Chart
+   173|            updateChart(filteredSales);
+   174|        } catch (error) {
+   175|            console.error('Error loading sales:', error);
+   176|        }
+   177|    }
+   178|
+   179|    function updateChart(sales) {
+   180|        // Group sales by date
+   181|        const dailySales = {};
+   182|        sales.forEach(sale => {
+   183|            const date = new Date(sale.sale_date).toLocaleDateString('th-TH');
+   184|            dailySales[date] = (dailySales[date] || 0) + parseFloat(sale.total_price);
+   185|        });
+   186|
+   187|        const labels = Object.keys(dailySales).sort();
+   188|        const data = labels.map(label => dailySales[label]);
+   189|
+   190|        const ctx = document.getElementById('salesChart').getContext('2d');
+   191|        
+   192|        if (salesChart) {
+   193|            salesChart.destroy();
+   194|        }
+   195|
+   196|        salesChart = new Chart(ctx, {
+   197|            type: 'line',
+   198|            data: {
+   199|                labels: labels,
+   200|                datasets: [{
+   201|                    label: 'Daily Sales (฿)',
+   202|                    data: data,
+   203|                    borderColor: '#D4AF37',
+   204|                    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+   205|                    borderWidth: 2,
+   206|                    fill: true,
+   207|                    tension: 0.4
+   208|                }]
+   209|            },
+   210|            options: {
+   211|                responsive: true,
+   212|                plugins: {
+   213|                    legend: {
+   214|                        display: true,
+   215|                        labels: {
+   216|                            color: '#1B3A57'
+   217|                        }
+   218|                    }
+   219|                },
+   220|                scales: {
+   221|                    y: {
+   222|                        beginAtZero: true,
+   223|                        ticks: {
+   224|                            color: '#1B3A57'
+   225|                        },
+   226|                        grid: {
+   227|                            color: 'rgba(212, 175, 55, 0.1)'
+   228|                        }
+   229|                    },
+   230|                    x: {
+   231|                        ticks: {
+   232|                            color: '#1B3A57'
+   233|                        },
+   234|                        grid: {
+   235|                            color: 'rgba(212, 175, 55, 0.1)'
+   236|                        }
+   237|                    }
+   238|                }
+   239|            }
+   240|        });
+   241|    }
+   242|
+   243|    loadBranches();
+   244|    loadSales();
+   245|</script>
+   246|{% endblock %}
+   247|
+   248|

@@ -1,0 +1,223 @@
+     1|{% extends 'jaewhoncost/base.html' %}
+     2|
+     3|{% block title %}Settings - Restaurant Management{% endblock %}
+     4|{% block page_title %}Settings Management{% endblock %}
+     5|
+     6|{% block content %}
+     7|<div class="page-header">
+     8|    <h3>⚙️ Settings</h3>
+     9|    <button class="btn btn-primary" onclick="openAddModal()">+ Add Setting</button>
+    10|</div>
+    11|
+    12|<div class="card">
+    13|    <table id="settings-table">
+    14|        <thead>
+    15|            <tr>
+    16|                <th>Branch</th>
+    17|                <th>Business Name</th>
+    18|                <th>Tax Rate (%)</th>
+    19|                <th>Currency</th>
+    20|                <th>Actions</th>
+    21|            </tr>
+    22|        </thead>
+    23|        <tbody>
+    24|            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+    25|        </tbody>
+    26|    </table>
+    27|</div>
+    28|
+    29|<!-- Add/Edit Modal -->
+    30|<div id="settingModal" class="modal">
+    31|    <div class="modal-content">
+    32|        <span class="close" onclick="closeModal()">&times;</span>
+    33|        <h2>Add/Edit Setting</h2>
+    34|        <form id="settingForm">
+    35|            <div class="form-group">
+    36|                <label>Branch:</label>
+    37|                <select id="branch_id" required>
+    38|                    <option value="">Select Branch</option>
+    39|                </select>
+    40|            </div>
+    41|            <div class="form-group">
+    42|                <label>Business Name:</label>
+    43|                <input type="text" id="business_name" required>
+    44|            </div>
+    45|            <div class="form-group">
+    46|                <label>Tax Rate (%):</label>
+    47|                <input type="number" id="tax_rate" step="0.01" required>
+    48|            </div>
+    49|            <div class="form-group">
+    50|                <label>Currency:</label>
+    51|                <input type="text" id="currency" value="THB" required>
+    52|            </div>
+    53|            <button type="submit" class="btn btn-primary">Save</button>
+    54|            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+    55|        </form>
+    56|    </div>
+    57|</div>
+    58|
+    59|<style>
+    60|    .page-header {
+    61|        display: flex;
+    62|        justify-content: space-between;
+    63|        align-items: center;
+    64|        margin-bottom: 20px;
+    65|    }
+    66|
+    67|    .modal {
+    68|        display: none;
+    69|        position: fixed;
+    70|        z-index: 1000;
+    71|        left: 0;
+    72|        top: 0;
+    73|        width: 100%;
+    74|        height: 100%;
+    75|        background-color: rgba(0, 0, 0, 0.5);
+    76|    }
+    77|
+    78|    .modal-content {
+    79|        background-color: white;
+    80|        margin: 5% auto;
+    81|        padding: 30px;
+    82|        border-radius: 8px;
+    83|        width: 90%;
+    84|        max-width: 500px;
+    85|        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    86|    }
+    87|
+    88|    .close {
+    89|        color: var(--navy);
+    90|        float: right;
+    91|        font-size: 28px;
+    92|        font-weight: bold;
+    93|        cursor: pointer;
+    94|    }
+    95|
+    96|    .close:hover {
+    97|        color: var(--gold);
+    98|    }
+    99|</style>
+   100|
+   101|<script>
+   102|    const API_BASE = window.location.origin + '/api';
+   103|    let currentSettingId = null;
+   104|
+   105|    async function loadSettings( ) {
+   106|        try {
+   107|            const response = await fetch(`${API_BASE}/settings/`);
+   108|            const settings = await response.json();
+   109|            const tbody = document.querySelector('#settings-table tbody');
+   110|            tbody.innerHTML = '';
+   111|
+   112|            settings.forEach(setting => {
+   113|                const row = tbody.insertRow();
+   114|                row.innerHTML = `
+   115|                    <td>${setting.branch_name}</td>
+   116|                    <td>${setting.business_name}</td>
+   117|                    <td>${setting.tax_rate}%</td>
+   118|                    <td>${setting.currency}</td>
+   119|                    <td>
+   120|                        <button class="btn btn-primary" onclick="editSetting(${setting.id})">Edit</button>
+   121|                        <button class="btn btn-danger" onclick="deleteSetting(${setting.id})">Delete</button>
+   122|                    </td>
+   123|                `;
+   124|            });
+   125|
+   126|            if (settings.length === 0) {
+   127|                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No settings</td></tr>';
+   128|            }
+   129|        } catch (error) {
+   130|            console.error('Error loading settings:', error);
+   131|        }
+   132|    }
+   133|
+   134|    async function loadBranches() {
+   135|        try {
+   136|            const response = await fetch(`${API_BASE}/branches/`);
+   137|            const branches = await response.json();
+   138|            const select = document.getElementById('branch_id');
+   139|            
+   140|            branches.forEach(branch => {
+   141|                const option = document.createElement('option');
+   142|                option.value = branch.id;
+   143|                option.textContent = branch.name;
+   144|                select.appendChild(option);
+   145|            });
+   146|        } catch (error) {
+   147|            console.error('Error loading branches:', error);
+   148|        }
+   149|    }
+   150|
+   151|    function openAddModal() {
+   152|        currentSettingId = null;
+   153|        document.getElementById('settingForm').reset();
+   154|        document.getElementById('settingModal').style.display = 'block';
+   155|    }
+   156|
+   157|    function closeModal() {
+   158|        document.getElementById('settingModal').style.display = 'none';
+   159|    }
+   160|
+   161|    async function editSetting(id) {
+   162|        try {
+   163|            const response = await fetch(`${API_BASE}/settings/${id}/`);
+   164|            const setting = await response.json();
+   165|            
+   166|            currentSettingId = id;
+   167|            document.getElementById('branch_id').value = setting.branch;
+   168|            document.getElementById('business_name').value = setting.business_name;
+   169|            document.getElementById('tax_rate').value = setting.tax_rate;
+   170|            document.getElementById('currency').value = setting.currency;
+   171|            
+   172|            document.getElementById('settingModal').style.display = 'block';
+   173|        } catch (error) {
+   174|            console.error('Error loading setting:', error);
+   175|        }
+   176|    }
+   177|
+   178|    async function deleteSetting(id) {
+   179|        if (confirm('Are you sure?')) {
+   180|            try {
+   181|                await fetch(`${API_BASE}/settings/${id}/`, { method: 'DELETE' });
+   182|                loadSettings();
+   183|            } catch (error) {
+   184|                console.error('Error deleting setting:', error);
+   185|            }
+   186|        }
+   187|    }
+   188|
+   189|    document.getElementById('settingForm').addEventListener('submit', async (e) => {
+   190|        e.preventDefault();
+   191|        
+   192|        const data = {
+   193|            branch: document.getElementById('branch_id').value,
+   194|            business_name: document.getElementById('business_name').value,
+   195|            tax_rate: document.getElementById('tax_rate').value,
+   196|            currency: document.getElementById('currency').value,
+   197|        };
+   198|
+   199|        try {
+   200|            const method = currentSettingId ? 'PUT' : 'POST';
+   201|            const url = currentSettingId 
+   202|                ? `${API_BASE}/settings/${currentSettingId}/`
+   203|                : `${API_BASE}/settings/`;
+   204|
+   205|            await fetch(url, {
+   206|                method: method,
+   207|                headers: { 'Content-Type': 'application/json' },
+   208|                body: JSON.stringify(data)
+   209|            });
+   210|
+   211|            closeModal();
+   212|            loadSettings();
+   213|        } catch (error) {
+   214|            console.error('Error saving setting:', error);
+   215|        }
+   216|    });
+   217|
+   218|    loadBranches();
+   219|    loadSettings();
+   220|</script>
+   221|{% endblock %}
+   222|
+   223|

@@ -1,0 +1,310 @@
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}Dashboard - Restaurant Management{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Statistics Cards -->
+    <div class="card">
+        <h3>📊 Statistics</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number" id="total-sales">0</div>
+                <div class="stat-label">Total Sales</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-ingredients">0</div>
+                <div class="stat-label">Ingredients</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-recipes">0</div>
+                <div class="stat-label">Recipes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="total-menus">0</div>
+                <div class="stat-label">Menus</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Calculation Quick Access -->
+    <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+        <h3>💰 Cost Calculator</h3>
+        <p style="margin: 10px 0;">คำนวณต้นทุนตามมาตรฐานสากล (International Standard)</p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <a href="/cost-calculator/" class="btn btn-primary" style="background: white; color: #764ba2;">📟 เปิดเครื่องคำนวณ</a>
+            <a href="/cost-calculation/" class="btn" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5);">📊 ดูรายงาน</a>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="card">
+        <h3>🚀 Quick Actions</h3>
+        <div class="quick-actions">
+            <a href="/ingredients/" class="btn btn-primary">➕ Add Ingredient</a>
+            <a href="/recipes/" class="btn btn-primary">📝 Create Recipe</a>
+            <a href="/menus/" class="btn btn-primary">🍽️ Add Menu</a>
+            <a href="/sales/" class="btn btn-success">💰 Record Sale</a>
+        </div>
+    </div>
+
+    <!-- Real-time Cost Overview -->
+    <div class="card">
+        <h3>📊 ภาพรวมต้นทุนแบบ Real-time</h3>
+        <div id="cost-overview-loading" style="text-align: center; padding: 20px;">
+            <div class="spinner">Loading cost data...</div>
+        </div>
+        <div id="cost-overview-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;" id="cost-cards">
+                <!-- จะถูกเติมด้วย JavaScript -->
+            </div>
+        </div>
+        <div id="no-recipes-message" style="text-align: center; padding: 30px; color: #666; display: none;">
+            <div style="font-size: 48px; margin-bottom: 15px;">🍽️</div>
+            <h4>ยังไม่มีสูตรอาหาร</h4>
+            <p>สร้างสูตรอาหารเพื่อดูการคำนวณต้นทุน</p>
+            <a href="/recipes/" class="btn btn-primary">สร้างสูตรแรก</a>
+        </div>
+    </div>
+
+    <!-- Recent Sales -->
+    <div class="card">
+        <h3>🍽️ Recent Sales</h3>
+        <div id="sales-loading" style="text-align: center; padding: 20px; display: none;">
+            <div class="spinner">Loading...</div>
+        </div>
+        <div id="no-sales-message" style="text-align: center; padding: 30px; color: #666; display: none;">
+            <div style="font-size: 48px; margin-bottom: 15px;">📭</div>
+            <h4>No sales data yet</h4>
+            <p>Start recording sales to see them here.</p>
+            <a href="/sales/" class="btn btn-primary">Record First Sale</a>
+        </div>
+        <table id="sales-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Menu</th>
+                    <th>Quantity</th>
+                    <th>Total Price</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .dashboard-grid {
+        display: grid;
+        gap: 20px;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .stat-item {
+        background: linear-gradient(135deg, #ffd700 0%, #ffed8a 100%);
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+        color: #1a237e;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+
+    .stat-item:hover {
+        transform: translateY(-3px);
+    }
+
+    .stat-number {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        opacity: 0.8;
+    }
+
+    .quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .quick-actions .btn {
+        flex: 1;
+        min-width: 150px;
+        text-align: center;
+    }
+
+    .spinner {
+        color: #666;
+        font-style: italic;
+    }
+
+    .cost-card {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        border-left: 4px solid #4caf50;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .cost-card h5 {
+        margin: 0 0 10px 0;
+        color: #333;
+    }
+
+    .cost-card .cost-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #e74c3c;
+        margin: 5px 0;
+    }
+
+    .cost-card .cost-label {
+        font-size: 12px;
+        color: #666;
+    }
+</style>
+
+<script>
+    const API_BASE = window.location.origin + '/api';
+
+    async function loadDashboard() {
+        try {
+            // Show loading
+            document.getElementById('sales-loading').style.display = 'block';
+            document.getElementById('sales-table').style.display = 'none';
+            document.getElementById('no-sales-message').style.display = 'none';
+            document.getElementById('cost-overview-loading').style.display = 'block';
+            document.getElementById('cost-overview-content').style.display = 'none';
+
+            // Load Statistics
+            const [sales, ingredients, recipes, menus] = await Promise.all([
+                fetch(`${API_BASE}/sales/`).then(r => r.json()),
+                fetch(`${API_BASE}/ingredients/`).then(r => r.json()),
+                fetch(`${API_BASE}/recipes/`).then(r => r.json()),
+                fetch(`${API_BASE}/menus/`).then(r => r.json())
+            ]);
+
+            // Update Statistics
+            document.getElementById('total-sales').textContent = sales.length;
+            document.getElementById('total-ingredients').textContent = ingredients.length;
+            document.getElementById('total-recipes').textContent = recipes.length;
+            document.getElementById('total-menus').textContent = menus.length;
+
+            // Load Recent Sales (show last 5)
+            const tbody = document.querySelector('#sales-table tbody');
+            tbody.innerHTML = '';
+
+            if (sales.length === 0) {
+                document.getElementById('sales-loading').style.display = 'none';
+                document.getElementById('no-sales-message').style.display = 'block';
+            } else {
+                sales.slice(-5).reverse().forEach(sale => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${sale.menu_name || 'Unknown'}</td>
+                        <td>${sale.quantity}</td>
+                        <td>฿${parseFloat(sale.total_price).toFixed(2)}</td>
+                        <td>${new Date(sale.sale_date).toLocaleDateString('th-TH')}</td>
+                    `;
+                });
+
+                document.getElementById('sales-loading').style.display = 'none';
+                document.getElementById('sales-table').style.display = 'table';
+            }
+
+            // Load Cost Overview
+            if (recipes.length === 0) {
+                document.getElementById('cost-overview-loading').style.display = 'none';
+                document.getElementById('no-recipes-message').style.display = 'block';
+            } else {
+                // คำนวณต้นทุนสำหรับสูตรแรกๆ (จำกัดแค่ 3 สูตรแรกเพื่อความเร็ว)
+                const costCardsContainer = document.getElementById('cost-cards');
+                costCardsContainer.innerHTML = '';
+                
+                for (let i = 0; i < Math.min(recipes.length, 3); i++) {
+                    const recipe = recipes[i];
+                    try {
+                        const costData = await fetch(`${API_BASE}/recipes/${recipe.id}/calculate_cost/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({
+                                waste_percent: 5.0,
+                                target_food_cost_percent: 30.0,
+                                overhead_utilities: 4.80,
+                                overhead_labor: 16.20,
+                                overhead_rent: 6.00,
+                                overhead_depreciation: 1.80,
+                                overhead_marketing: 1.80,
+                                overhead_delivery: 17.01
+                            })
+                        }).then(r => r.json());
+                        
+                        const card = document.createElement('div');
+                        card.className = 'cost-card';
+                        card.innerHTML = `
+                            <h5>${recipe.name}</h5>
+                            <div class="cost-value">฿${costData.total_cost_with_overhead ? costData.total_cost_with_overhead.toFixed(2) : '0.00'}</div>
+                            <div class="cost-label">ต้นทุนรวม (รวม Overhead)</div>
+                            <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                                ต้นทุนวัตถุดิบ: ฿${costData.total_ingredient_cost ? costData.total_ingredient_cost.toFixed(2) : '0.00'}<br>
+                                ราคาขายแนะนำ: ฿${costData.suggested_price ? costData.suggested_price.toFixed(2) : '0.00'}
+                            </div>
+                        `;
+                        costCardsContainer.appendChild(card);
+                    } catch (error) {
+                        console.error(`Error loading cost for recipe ${recipe.id}:`, error);
+                    }
+                }
+                
+                document.getElementById('cost-overview-loading').style.display = 'none';
+                document.getElementById('cost-overview-content').style.display = 'block';
+            }
+
+        } catch (error) {
+            console.error('Error loading dashboard:', error);
+            document.getElementById('sales-loading').style.display = 'none';
+            document.getElementById('no-sales-message').style.display = 'block';
+            document.getElementById('cost-overview-loading').style.display = 'none';
+            document.getElementById('no-recipes-message').style.display = 'block';
+        }
+    }
+
+    // ฟังก์ชันอ่าน CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Load on page load
+    loadDashboard();
+    
+    // Refresh every 30 seconds
+    setInterval(loadDashboard, 30000);
+</script>
+{% endblock %}
