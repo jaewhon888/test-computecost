@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-(1^e=hu@)0r5!fzv0*d3i-6nhzc-1*lf0pvu9@=dr5n#)4auxy
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['103.125.217.77', 'localhost', '127.0.0.1','103-125-217-77.as-sg-cloud-xip.com']
+ALLOWED_HOSTS = ['*'] if DEBUG else ['103.125.217.77', 'localhost', '127.0.0.1', '103-125-217-77.as-sg-cloud-xip.com', '87795e9b2f0138.lhr.life', '*.lhr.life']
 
 
 # Application definition
@@ -131,8 +131,18 @@ CORS_ALLOWED_ORIGINS = [
     "http://103.125.217.77",
     "http://103.125.217.77:3000",
     "http://103.125.217.77:5173",
+    "http://103.125.217.77:8000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
 
 
+REST_FRAMEWORK = {
+   # 'DEFAULT_AUTHENTICATION_CLASSES': (
+   #    'rest_framework.authentication.TokenAuthentication',
+   # ),
+   'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.AllowAny',
+   ),
+   'DEFAULT_PAGINATION_CLASS': None,
+}

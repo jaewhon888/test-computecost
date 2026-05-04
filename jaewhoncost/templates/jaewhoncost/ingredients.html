@@ -10,6 +10,7 @@
 </div>
 
 <div class="card">
+    <div id="error-msg" style="color: red; display: none; padding: 10px; margin-bottom: 10px; border: 1px solid red;"></div>
     <table id="ingredients-table">
         <thead>
             <tr>
@@ -113,41 +114,90 @@
     const API_BASE = window.location.origin + '/api';
     let currentIngredientId = null;
 
-    async function loadIngredients( ) {
+    // ฟังก์ชันโหลดวัตถุดิบ - เขียนแบบง่ายๆ
+    async function loadIngredients() {
         try {
-            const response = await fetch(`${API_BASE}/ingredients/`);
-            const ingredients = await response.json();
+            console.log('Starting loadIngredients...');
+            const response = await fetch(API_BASE + '/ingredients/');
+            console.log('Response status:', response.status);
+            const data = await response.json();
+            console.log('Data received:', data.length, 'items');
+            
             const tbody = document.querySelector('#ingredients-table tbody');
+            if (!tbody) {
+                alert('Table body not found!');
+                return;
+            }
+            
+            // ลบข้อมูลเก่า
             tbody.innerHTML = '';
-
-            ingredients.forEach(ing => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${ing.name}</td>
-                    <td>${ing.branch_name}</td>
-                    <td>฿${ing.price}</td>
-                    <td>${ing.unit}</td>
-                    <td>${ing.stock}</td>
-                    <td>
-                        <button class="btn btn-primary" onclick="editIngredient(${ing.id})">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteIngredient(${ing.id})">Delete</button>
-                    </td>
-                `;
-            });
-
-            if (ingredients.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No ingredients</td></tr>';
+            
+            // ตรวจสอบว่าข้อมูลเป็น array
+            if (!Array.isArray(data)) {
+                alert('Data is not an array! Got: ' + typeof data);
+                return;
+            }
+            
+            // สร้างแถวใหม่ทีละรายการ
+            for (let i = 0; i < data.length; i++) {
+                const ing = data[i];
+                const row = document.createElement('tr');
+                
+                const td1 = document.createElement('td');
+                td1.textContent = ing.name || 'ไม่มีชื่อ';
+                row.appendChild(td1);
+                
+                const td2 = document.createElement('td');
+                td2.textContent = ing.branch_name || '-';
+                row.appendChild(td2);
+                
+                const td3 = document.createElement('td');
+                td3.textContent = '฿' + (ing.price || 0);
+                row.appendChild(td3);
+                
+                const td4 = document.createElement('td');
+                td4.textContent = ing.unit || '-';
+                row.appendChild(td4);
+                
+                const td5 = document.createElement('td');
+                td5.textContent = ing.stock || 0;
+                row.appendChild(td5);
+                
+                const td6 = document.createElement('td');
+                const editBtn = document.createElement('button');
+                editBtn.className = 'btn btn-primary';
+                editBtn.textContent = 'Edit';
+                editBtn.onclick = function() { editIngredient(ing.id); };
+                td6.appendChild(editBtn);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-danger';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = function() { deleteIngredient(ing.id); };
+                td6.appendChild(deleteBtn);
+                
+                row.appendChild(td6);
+                tbody.appendChild(row);
+            }
+            
+            console.log('Created', data.length, 'rows');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No ingredients found</td></tr>';
             }
         } catch (error) {
-            console.error('Error loading ingredients:', error);
+            alert('Error loading ingredients: ' + error.message);
+            console.error('Error:', error);
         }
     }
-
+    
+    // ฟังก์ชันโหลดสาขา
     async function loadBranches() {
         try {
-            const response = await fetch(`${API_BASE}/branches/`);
+            const response = await fetch(API_BASE + '/branches/');
             const branches = await response.json();
             const select = document.getElementById('branch_id');
+            if (!select) return;
             
             branches.forEach(branch => {
                 const option = document.createElement('option');
@@ -159,76 +209,47 @@
             console.error('Error loading branches:', error);
         }
     }
-
+    
+    // ฟังก์ชันเพิ่ม/แก้ไข
     function openAddModal() {
         currentIngredientId = null;
         document.getElementById('ingredientForm').reset();
         document.getElementById('ingredientModal').style.display = 'block';
     }
-
+    
     function closeModal() {
         document.getElementById('ingredientModal').style.display = 'none';
     }
-
+    
     async function editIngredient(id) {
         try {
-            const response = await fetch(`${API_BASE}/ingredients/${id}/`);
+            const response = await fetch(API_BASE + '/ingredients/' + id + '/');
             const ingredient = await response.json();
-            
             currentIngredientId = id;
             document.getElementById('branch_id').value = ingredient.branch;
             document.getElementById('name').value = ingredient.name;
             document.getElementById('price').value = ingredient.price;
             document.getElementById('unit').value = ingredient.unit;
             document.getElementById('stock').value = ingredient.stock;
-            
             document.getElementById('ingredientModal').style.display = 'block';
         } catch (error) {
             console.error('Error loading ingredient:', error);
         }
     }
-
+    
     async function deleteIngredient(id) {
         if (confirm('Are you sure?')) {
             try {
-                await fetch(`${API_BASE}/ingredients/${id}/`, { method: 'DELETE' });
+                await fetch(API_BASE + '/ingredients/' + id + '/', { method: 'DELETE' });
                 loadIngredients();
             } catch (error) {
                 console.error('Error deleting ingredient:', error);
             }
         }
     }
-
-    document.getElementById('ingredientForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const data = {
-            branch: document.getElementById('branch_id').value,
-            name: document.getElementById('name').value,
-            price: document.getElementById('price').value,
-            unit: document.getElementById('unit').value,
-            stock: document.getElementById('stock').value,
-        };
-
-        try {
-            const method = currentIngredientId ? 'PUT' : 'POST';
-            const url = currentIngredientId 
-                ? `${API_BASE}/ingredients/${currentIngredientId}/`
-                : `${API_BASE}/ingredients/`;
-
-            await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            closeModal();
-            loadIngredients();
-        } catch (error) {
-            console.error('Error saving ingredient:', error);
-        }
-    });
-
+    
+    // เรียกใช้ทันทีที่ Script โหลด (ไม่ต้องรอ DOMContentLoaded)
+    console.log('Script loaded, calling functions...');
     loadBranches();
     loadIngredients();
 </script>

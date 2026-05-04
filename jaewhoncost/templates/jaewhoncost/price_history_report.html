@@ -1,0 +1,191 @@
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}รายงานราคาวัตถุดิบ - Restaurant Management{% endblock %}
+{% block page_title %}รายงานราคาวัตถุดิบตามช่วงเวลา{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>📊 รายงานราคาวัตถุดิบตามช่วงเวลา</h3>
+</div>
+
+<!-- ฟอร์มกรองข้อมูล -->
+<div class="card">
+    <h4>🔍 กรองข้อมูล</h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <div class="form-group">
+            <label>วัตถุดิบ</label>
+            <select id="filter-ingredient" style="width: 100%; padding: 8px;">
+                <option value="">ทุกรายการ</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>วันที่เริมต้น</label>
+            <input type="date" id="filter-start-date" style="width: 100%; padding: 8px;">
+        </div>
+        <div class="form-group">
+            <label>วันที่สิ้นสุด</label>
+            <input type="date" id="filter-end-date" style="width: 100%; padding: 8px;">
+        </div>
+        <div class="form-group" style="display: flex; align-items: end;">
+            <button class="btn btn-primary" onclick="loadPriceHistory()" style="width: 100%;">ค้นหา</button>
+        </div>
+    </div>
+</div>
+
+<!-- สรุปตัวเลข -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="total-records">0</h3>
+        <p style="margin: 5px 0 0 0;">จำนวนบันทึก</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="avg-price">฿0.00</h3>
+        <p style="margin: 5px 0 0 0;">ราคาเฉลี่ย</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="price-change">0%</h3>
+        <p style="margin: 5px 0 0 0;">การเปลี่ยนแปลง</p>
+    </div>
+</div>
+
+<!-- ตารางประวัติราคา -->
+<div class="card">
+    <h4>📋 ประวัติราคาวัตถุดิบ</h4>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="padding: 12px; text-align: left;">วันที่</th>
+                <th style="padding: 12px; text-align: left;">วัตถุดิบ</th>
+                <th style="padding: 12px; text-align: right;">ราคาต่อหน่วย</th>
+                <th style="padding: 12px; text-align: right;">จำนวนที่ซื้อ</th>
+                <th style="padding: 12px; text-align: left;">ใบจัดซื้อ</th>
+                <th style="padding: 12px; text-align: left;">หมายเหตุ</th>
+            </tr>
+        </thead>
+        <tbody id="price-history-table-body">
+            <tr>
+                <td colspan="6" style="padding: 30px; text-align: center; color: #666;">กรุณาเลือกวัตถุดิบและช่วงเวลา</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- กราฟ (ถ้าต้องการเพิ่มในอนาคต) -->
+<div class="card" style="margin-top: 20px;">
+    <h4>📈 แนวโน้มราคา</h4>
+    <div id="price-chart" style="height: 300px; display: flex; align-items: center; justify-content: center; color: #666;">
+        กราฟแสดงแนวโน้มราคา (Coming Soon)
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API_BASE = window.location.origin + '/api';
+
+let ingredients = [];
+let priceHistory = [];
+
+// โหลดข้อมูลเริมต้น
+async function init() {
+    await loadIngredients();
+}
+
+// โหลดวัตถุดิบ
+async function loadIngredients() {
+    try {
+        const response = await fetch(`${API_BASE}/ingredients/`);
+        ingredients = await response.json();
+        
+        const select = document.getElementById('filter-ingredient');
+        select.innerHTML = '<option value="">ทุกรายการ</option>';
+        ingredients.forEach(ing => {
+            select.innerHTML += `<option value="${ing.id}">${ing.name} (${ing.unit})</option>`;
+        });
+    } catch (error) {
+        console.error('Error loading ingredients:', error);
+    }
+}
+
+// โหลดประวัติราคา
+async function loadPriceHistory() {
+    const ingredientId = document.getElementById('filter-ingredient').value;
+    const startDate = document.getElementById('filter-start-date').value;
+    const endDate = document.getElementById('filter-end-date').value;
+    
+    let url = `${API_BASE}/price-history/`;
+    const params = [];
+    if (ingredientId) params.push(`ingredient_id=${ingredientId}`);
+    if (startDate) params.push(`start_date=${startDate}`);
+    if (endDate) params.push(`end_date=${endDate}`);
+    if (params.length > 0) url += '?' + params.join('&');
+    
+    try {
+        const response = await fetch(url);
+        priceHistory = await response.json();
+        
+        displayPriceHistory();
+        updateSummary();
+    } catch (error) {
+        console.error('Error loading price history:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    }
+}
+
+// แสดงประวัติราคาในตาราง
+function displayPriceHistory() {
+    const tbody = document.getElementById('price-history-table-body');
+    tbody.innerHTML = '';
+    
+    if (priceHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding: 30px; text-align: center; color: #666;">ไม่พบข้อมูล</td></tr>';
+        return;
+    }
+    
+    priceHistory.forEach(record => {
+        const date = new Date(record.effective_date).toLocaleDateString('th-TH');
+        const ingredientName = record.ingredient_name || '-';
+        const price = parseFloat(record.price).toFixed(4);
+        const quantity = record.quantity_purchased ? parseFloat(record.quantity_purchased).toFixed(4) : '-';
+        const purchaseLink = record.purchase_id ? `<a href="/purchases/">#${record.purchase_id}</a>` : '-';
+        const note = record.note || '-';
+        
+        tbody.innerHTML += `
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px;">${date}</td>
+                <td style="padding: 12px;">${ingredientName}</td>
+                <td style="padding: 12px; text-align: right;">฿${price}</td>
+                <td style="padding: 12px; text-align: right;">${quantity}</td>
+                <td style="padding: 12px;">${purchaseLink}</td>
+                <td style="padding: 12px;">${note}</td>
+            </tr>
+        `;
+    });
+}
+
+// อัปเดตสรุปตัวเลข
+function updateSummary() {
+    document.getElementById('total-records').textContent = priceHistory.length;
+    
+    if (priceHistory.length > 0) {
+        const prices = priceHistory.map(r => parseFloat(r.price));
+        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+        document.getElementById('avg-price').textContent = '฿' + avgPrice.toFixed(4);
+        
+        // คำนวณการเปลี่ยนแปลง
+        if (priceHistory.length >= 2) {
+            const sorted = [...priceHistory].sort((a, b) => new Date(a.effective_date) - new Date(b.effective_date));
+            const firstPrice = parseFloat(sorted[0].price);
+            const lastPrice = parseFloat(sorted[sorted.length - 1].price);
+            const change = ((lastPrice - firstPrice) / firstPrice * 100).toFixed(2);
+            const changeElement = document.getElementById('price-change');
+            changeElement.textContent = change + '%';
+            changeElement.style.color = change >= 0 ? '#28a745' : '#dc3545';
+        }
+    }
+}
+
+// เริมต้น
+init();
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-#!/home/jaewhon/django-jaewhon/py3/bin/python3
+#!/home/mazaoa/django/django-jaewhon/py3/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys

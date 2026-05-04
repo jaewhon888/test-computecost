@@ -1,58 +1,253 @@
-     1|{% extends 'jaewhoncost/base.html' %}
-     2|
-     3|{% block title %}Branches - Restaurant Management{% endblock %}
-     4|{% block page_title %}Branches{% endblock %}
-     5|
-     6|{% block content %}
-     7|<div class="card">
-     8|    <h3>🏢 Branches</h3>
-     9|    <table id="branches-table">
-    10|        <thead>
-    11|            <tr>
-    12|                <th>Name</th>
-    13|                <th>Owner</th>
-    14|                <th>Address</th>
-    15|                <th>Phone</th>
-    16|                <th>Created</th>
-    17|            </tr>
-    18|        </thead>
-    19|        <tbody>
-    20|            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-    21|        </tbody>
-    22|    </table>
-    23|</div>
-    24|
-    25|<script>
-    26|    const API_BASE = window.location.origin + '/api';
-    27|
-    28|    async function loadBranches( ) {
-    29|        try {
-    30|            const response = await fetch(`${API_BASE}/branches/`);
-    31|            const branches = await response.json();
-    32|            const tbody = document.querySelector('#branches-table tbody');
-    33|            tbody.innerHTML = '';
-    34|
-    35|            branches.forEach(branch => {
-    36|                const row = tbody.insertRow();
-    37|                row.innerHTML = `
-    38|                    <td>${branch.name}</td>
-    39|                    <td>${branch.owner_name}</td>
-    40|                    <td>${branch.address}</td>
-    41|                    <td>${branch.phone}</td>
-    42|                    <td>${new Date(branch.created_at).toLocaleDateString('th-TH')}</td>
-    43|                `;
-    44|            });
-    45|
-    46|            if (branches.length === 0) {
-    47|                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No branches</td></tr>';
-    48|            }
-    49|        } catch (error) {
-    50|            console.error('Error loading branches:', error);
-    51|        }
-    52|    }
-    53|
-    54|    loadBranches();
-    55|</script>
-    56|{% endblock %}
-    57|
-    58|
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}Branches - Restaurant Management{% endblock %}
+{% block page_title %}Branches{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>🏢 Branches List</h3>
+        <button class="btn btn-primary" onclick="openBranchModal()">+ Add Branch</button>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filters" style="margin-bottom: 20px;">
+        <input type="text" id="searchBranch" placeholder="Search branch name..." class="form-control" style="width: 300px; display: inline-block;">
+    </div>
+    
+    <!-- Branches Table -->
+    <table class="data-table" id="branches-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Owner</th>
+                <th>Address</th>
+                <th>Phone</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Branch Modal -->
+<div id="branchModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeBranchModal()">&times;</span>
+        <h2 id="branchModalTitle">Add Branch</h2>
+        <form id="branchForm">
+            <input type="hidden" id="branchId">
+            
+            <div class="form-group">
+                <label for="branchName">Name *</label>
+                <input type="text" id="branchName" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="branchOwner">Owner</label>
+                <select id="branchOwner">
+                    <option value="">Select Owner</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="branchAddress">Address</label>
+                <textarea id="branchAddress" rows="3"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="branchPhone">Phone</label>
+                <input type="text" id="branchPhone">
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeBranchModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API_BASE = window.location.origin + '/api';
+let branches = [];
+let owners = [];
+
+// Load owners for dropdown
+async function loadOwners() {
+    try {
+        const response = await fetch(`${API_BASE}/owners/`);
+        owners = await response.json();
+        const select = document.getElementById('branchOwner');
+        select.innerHTML = '<option value="">Select Owner</option>';
+        owners.forEach(owner => {
+            const option = document.createElement('option');
+            option.value = owner.id;
+            option.textContent = owner.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading owners:', error);
+    }
+}
+
+async function loadBranches() {
+    try {
+        const response = await fetch(`${API_BASE}/branches/`);
+        branches = await response.json();
+        renderBranches(branches);
+    } catch (error) {
+        console.error('Error loading branches:', error);
+    }
+}
+
+function renderBranches(data) {
+    const tbody = document.querySelector('#branches-table tbody');
+    tbody.innerHTML = '';
+    
+    const search = document.getElementById('searchBranch').value.toLowerCase();
+    const filtered = data.filter(b => 
+        b.name.toLowerCase().includes(search) ||
+        (b.owner_name && b.owner_name.toLowerCase().includes(search))
+    );
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No branches found</td></tr>';
+        return;
+    }
+    
+    filtered.forEach(branch => {
+        const ownerName = branch.owner_name || 'N/A';
+        const date = new Date(branch.created_at).toLocaleDateString('th-TH');
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${branch.name}</td>
+            <td>${ownerName}</td>
+            <td>${branch.address || '-'}</td>
+            <td>${branch.phone || '-'}</td>
+            <td>${date}</td>
+            <td>
+                <button class="btn btn-sm btn-edit" onclick="editBranch(${branch.id})">Edit</button>
+                <button class="btn btn-sm btn-delete" onclick="deleteBranch(${branch.id})">Delete</button>
+            </td>
+        `;
+    });
+}
+
+function openBranchModal(branchId = null) {
+    const modal = document.getElementById('branchModal');
+    modal.style.display = 'block';
+    
+    if (branchId) {
+        document.getElementById('branchModalTitle').textContent = 'Edit Branch';
+        const branch = branches.find(b => b.id === branchId);
+        document.getElementById('branchId').value = branch.id;
+        document.getElementById('branchName').value = branch.name;
+        document.getElementById('branchOwner').value = branch.owner || '';
+        document.getElementById('branchAddress').value = branch.address || '';
+        document.getElementById('branchPhone').value = branch.phone || '';
+    } else {
+        document.getElementById('branchModalTitle').textContent = 'Add Branch';
+        document.getElementById('branchForm').reset();
+        document.getElementById('branchId').value = '';
+    }
+}
+
+function closeBranchModal() {
+    document.getElementById('branchModal').style.display = 'none';
+}
+
+// Form submission
+document.getElementById('branchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const branchId = document.getElementById('branchId').value;
+    const data = {
+        name: document.getElementById('branchName').value,
+        owner: document.getElementById('branchOwner').value || null,
+        address: document.getElementById('branchAddress').value,
+        phone: document.getElementById('branchPhone').value
+    };
+    
+    const method = branchId ? 'PUT' : 'POST';
+    const url = branchId ? `${API_BASE}/branches/${branchId}/` : `${API_BASE}/branches/`;
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeBranchModal();
+            loadBranches();
+        } else {
+            alert('Error saving branch');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error saving branch');
+    }
+});
+
+async function deleteBranch(branchId) {
+    if (!confirm('Delete this branch?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/branches/${branchId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (response.ok) {
+            loadBranches();
+        } else {
+            alert('Error deleting branch');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting branch');
+    }
+}
+
+function editBranch(branchId) {
+    openBranchModal(branchId);
+}
+
+// Search functionality
+document.getElementById('searchBranch').addEventListener('input', () => {
+    renderBranches(branches);
+});
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initial load
+loadOwners();
+loadBranches();
+</script>
+{% endblock %}

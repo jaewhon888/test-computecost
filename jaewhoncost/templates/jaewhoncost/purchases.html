@@ -1,0 +1,404 @@
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}จัดซื้อวัตถุดิบ - Restaurant Management{% endblock %}
+
+{% block page_title %}จัดซื้อวัตถุดิบ (Purchase Management){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>🛒 จัดซื้อวัตถุดิบ</h3>
+    <button class="btn btn-primary" onclick="showAddModal()">+ สร้างใบจัดซื้อใหม่</button>
+</div>
+
+<!-- สรุปตัวเลข -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="total-purchases">0</h3>
+        <p style="margin: 5px 0 0 0;">จำนวนใบจัดซื้อ</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="total-amount">฿0.00</h3>
+        <p style="margin: 5px 0 0 0;">ยอดรวมทั้งหมด</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="pending-count">0</h3>
+        <p style="margin: 5px 0 0 0;">รอชำระเงิน</p>
+    </div>
+</div>
+
+<!-- ตารางรายการจัดซื้อ -->
+<div class="card">
+    <h4>📋 รายการจัดซื้อ</h4>
+    <div style="margin-bottom: 15px;">
+        <label>สาขา: </label>
+        <select id="filter-branch" onchange="loadPurchases()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">ทุกสาขา</option>
+        </select>
+        <label style="margin-left: 15px;">สถานะ: </label>
+        <select id="filter-status" onchange="loadPurchases()" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            <option value="">ทุกสถานะ</option>
+            <option value="pending">รอชำระ</option>
+            <option value="paid">ชำระแล้ว</option>
+            <option value="partial">ชำระบางส่วน</option>
+        </select>
+    </div>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="padding: 12px; text-align: left;">เลขที่</th>
+                <th style="padding: 12px; text-align: left;">สาขา</th>
+                <th style="padding: 12px; text-align: left;">ผู้จำหน่าย</th>
+                <th style="padding: 12px; text-align: left;">วันที่</th>
+                <th style="padding: 12px; text-align: right;">ยอดรวม</th>
+                <th style="padding: 12px; text-align: center;">สถานะ</th>
+                <th style="padding: 12px; text-align: center;">จัดการ</th>
+            </tr>
+        </thead>
+        <tbody id="purchases-table-body">
+            <tr>
+                <td colspan="7" style="padding: 30px; text-align: center; color: #666;">กำลังโหลด...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal สร้างใบจัดซื้อใหม่ -->
+<div id="add-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; width: 90%; max-width: 800px; margin: 50px auto; padding: 30px; border-radius: 8px; max-height: 80vh; overflow-y: auto;">
+        <h3>สร้างใบจัดซื้อใหม่</h3>
+        <form id="add-purchase-form">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>สาขา *</label>
+                    <select id="purchase-branch" required style="width: 100%; padding: 8px;">
+                        <option value="">เลือกสาขา</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ผู้จำหน่าย</label>
+                    <input type="text" id="purchase-supplier" placeholder="ชื่อผู้จำหน่าย" style="width: 100%; padding: 8px;">
+                </div>
+                <div class="form-group">
+                    <label>เลขที่ใบแจ้งหนี้</label>
+                    <input type="text" id="purchase-invoice" placeholder="เลขที่ใบแจ้งหนี้" style="width: 100%; padding: 8px;">
+                </div>
+                <div class="form-group">
+                    <label>สถานะการชำระ</label>
+                    <select id="purchase-payment-status" style="width: 100%; padding: 8px;">
+                        <option value="pending">รอชำระ</option>
+                        <option value="paid">ชำระแล้ว</option>
+                        <option value="partial">ชำระบางส่วน</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label>หมายเหตุ</label>
+                <textarea id="purchase-note" style="width: 100%; padding: 8px; min-height: 60px;"></textarea>
+            </div>
+            
+            <h4 style="margin-top: 20px;">รายการวัตถุดิบ</h4>
+            <div id="purchase-items">
+                <!-- Items will be added here -->
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addItemRow()" style="margin-top: 10px;">+ เพิ่มรายการ</button>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <strong>ยอดรวม: <span id="purchase-total">฿0.00</span></strong>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="savePurchase()">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API_BASE = window.location.origin + '/api';
+
+let branches = [];
+let ingredients = [];
+let purchaseItems = [];
+
+// เริ่มต้นโหลดข้อมูล
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded, initializing...');
+    init();
+});
+
+async function init() {
+    try {
+        await loadBranches();
+        await loadIngredients();
+        await loadPurchases();
+        console.log('Initialization complete');
+    } catch (error) {
+        console.error('Error during initialization:', error);
+    }
+}
+
+// โหลดสาขา
+async function loadBranches() {
+    try {
+        const response = await fetch(`${API_BASE}/branches/`);
+        branches = await response.json();
+        
+        const branchSelect = document.getElementById('purchase-branch');
+        const filterSelect = document.getElementById('filter-branch');
+        
+        branchSelect.innerHTML = '<option value="">เลือกสาขา</option>';
+        filterSelect.innerHTML = '<option value="">ทุกสาขา</option>';
+        
+        branches.forEach(branch => {
+            branchSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
+            filterSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
+        });
+        console.log('Branches loaded:', branches.length);
+    } catch (error) {
+        console.error('Error loading branches:', error);
+    }
+}
+
+// โหลดวัตถุดิบ
+async function loadIngredients() {
+    try {
+        const response = await fetch(`${API_BASE}/ingredients/`);
+        ingredients = await response.json();
+        console.log('Ingredients loaded:', ingredients.length);
+    } catch (error) {
+        console.error('Error loading ingredients:', error);
+    }
+}
+
+// โหลดรายการจัดซื้อ
+async function loadPurchases() {
+    try {
+        const branchId = document.getElementById('filter-branch').value;
+        const status = document.getElementById('filter-status').value;
+        
+        let url = `${API_BASE}/purchases/`;
+        const params = [];
+        if (branchId) params.push(`branch_id=${branchId}`);
+        if (status) params.push(`payment_status=${status}`);
+        if (params.length > 0) url += '?' + params.join('&');
+        
+        console.log('Loading purchases from:', url);
+        const response = await fetch(url);
+        const purchases = await response.json();
+        
+        const tbody = document.getElementById('purchases-table-body');
+        tbody.innerHTML = '';
+        
+        let totalAmount = 0;
+        let pendingCount = 0;
+        
+        if (purchases.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="padding: 30px; text-align: center; color: #666;">ไม่พบรายการจัดซื้อ</td></tr>';
+        } else {
+            purchases.forEach(p => {
+                const statusBadge = getStatusBadge(p.payment_status);
+                const date = new Date(p.purchase_date).toLocaleDateString('th-TH');
+                
+                const row = document.createElement('tr');
+                row.style.borderBottom = '1px solid #ddd';
+                row.innerHTML = `
+                    <td style="padding: 12px;">#${p.id}</td>
+                    <td style="padding: 12px;">${p.branch_name}</td>
+                    <td style="padding: 12px;">${p.supplier_name || '-'}</td>
+                    <td style="padding: 12px;">${date}</td>
+                    <td style="padding: 12px; text-align: right;">฿${parseFloat(p.total_amount).toFixed(2)}</td>
+                    <td style="padding: 12px; text-align: center;">${statusBadge}</td>
+                    <td style="padding: 12px; text-align: center;">
+                        <button class="btn btn-small" onclick="viewPurchase(${p.id})">ดู</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+                
+                totalAmount += parseFloat(p.total_amount);
+                if (p.payment_status === 'pending') pendingCount++;
+            });
+        }
+        
+        document.getElementById('total-purchases').textContent = purchases.length;
+        document.getElementById('total-amount').textContent = '฿' + totalAmount.toFixed(2);
+        document.getElementById('pending-count').textContent = pendingCount;
+        
+        console.log('Purchases loaded:', purchases.length);
+    } catch (error) {
+        console.error('Error loading purchases:', error);
+        const tbody = document.getElementById('purchases-table-body');
+        tbody.innerHTML = '<tr><td colspan="7" style="padding: 30px; text-align: center; color: #dc3545;">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+    }
+}
+
+// สร้าง badge สถานะ
+function getStatusBadge(status) {
+    const badges = {
+        'pending': '<span style="background: #ffc107; color: #000; padding: 4px 8px; border-radius: 4px; font-size: 12px;">รอชำระ</span>',
+        'paid': '<span style="background: #28a745; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">ชำระแล้ว</span>',
+        'partial': '<span style="background: #17a2b8; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">ชำระบางส่วน</span>'
+    };
+    return badges[status] || status;
+}
+
+// แสดง Modal เพิ่มใบจัดซื้อ
+function showAddModal() {
+    document.getElementById('add-modal').style.display = 'block';
+    document.getElementById('add-purchase-form').reset();
+    document.getElementById('purchase-items').innerHTML = '';
+    purchaseItems = [];
+    addItemRow(); // เพิ่มแถวแรก
+}
+
+// ปิด Modal
+function closeAddModal() {
+    document.getElementById('add-modal').style.display = 'none';
+}
+
+// เพิ่มแถวรายการวัตถุดิบ
+function addItemRow() {
+    const itemId = purchaseItems.length;
+    const html = `
+        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: center;" id="item-row-${itemId}">
+            <select onchange="updateItem(${itemId}, 'ingredient', this.value)" style="padding: 8px;">
+                <option value="">เลือกวัตถุดิบ</option>
+                ${ingredients.map(ing => `<option value="${ing.id}">${ing.name} (${ing.unit})</option>`).join('')}
+            </select>
+            <input type="number" step="0.0001" placeholder="จำนวน" onchange="updateItem(${itemId}, 'quantity', this.value)" style="padding: 8px;">
+            <input type="number" step="0.0001" placeholder="ราคาต่อหน่วย" onchange="updateItem(${itemId}, 'unit_price', this.value)" style="padding: 8px;">
+            <div style="padding: 8px; font-weight: bold;" id="item-total-${itemId}">฿0.00</div>
+            <button type="button" onclick="removeItemRow(${itemId})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">ลบ</button>
+        </div>
+    `;
+    document.getElementById('purchase-items').innerHTML += html;
+    purchaseItems.push({ ingredient: null, quantity: 0, unit_price: 0 });
+}
+
+// อัพเดตรายการ
+function updateItem(index, field, value) {
+    if (field === 'ingredient') {
+        purchaseItems[index].ingredient = parseInt(value);
+    } else if (field === 'quantity') {
+        purchaseItems[index].quantity = parseFloat(value) || 0;
+    } else if (field === 'unit_price') {
+        purchaseItems[index].unit_price = parseFloat(value) || 0;
+    }
+    updateItemTotal(index);
+    updatePurchaseTotal();
+}
+
+// อัพเดตยอดรวมรายการ
+function updateItemTotal(index) {
+    const item = purchaseItems[index];
+    const total = item.quantity * item.unit_price;
+    const elem = document.getElementById(`item-total-${index}`);
+    if (elem) elem.textContent = '฿' + total.toFixed(2);
+}
+
+// อัพเดตยอดรวมใบจัดซื้อ
+function updatePurchaseTotal() {
+    const total = purchaseItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    document.getElementById('purchase-total').textContent = '฿' + total.toFixed(2);
+}
+
+// ลบแถวรายการ
+function removeItemRow(index) {
+    purchaseItems.splice(index, 1);
+    renderPurchaseItems();
+    updatePurchaseTotal();
+}
+
+// เรนเดอร์รายการใหม่
+function renderPurchaseItems() {
+    const container = document.getElementById('purchase-items');
+    container.innerHTML = '';
+    purchaseItems.forEach((item, index) => {
+        const html = `
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: center;">
+                <select onchange="updateItem(${index}, 'ingredient', this.value)" style="padding: 8px;">
+                    <option value="">เลือกวัตถุดิบ</option>
+                    ${ingredients.map(ing => `<option value="${ing.id}" ${item.ingredient === ing.id ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}
+                </select>
+                <input type="number" step="0.0001" value="${item.quantity}" placeholder="จำนวน" onchange="updateItem(${index}, 'quantity', this.value)" style="padding: 8px;">
+                <input type="number" step="0.0001" value="${item.unit_price}" placeholder="ราคาต่อหน่วย" onchange="updateItem(${index}, 'unit_price', this.value)" style="padding: 8px;">
+                <div style="padding: 8px; font-weight: bold;" id="item-total-${index}">฿${(item.quantity * item.unit_price).toFixed(2)}</div>
+                <button type="button" onclick="removeItemRow(${index})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">ลบ</button>
+            </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+// บันทึกใบจัดซื้อ
+async function savePurchase() {
+    const branchId = document.getElementById('purchase-branch').value;
+    if (!branchId) {
+        alert('กรุณาเลือกสาขา');
+        return;
+    }
+    
+    const validItems = purchaseItems.filter(item => item.ingredient && item.quantity > 0);
+    if (validItems.length === 0) {
+        alert('กรุณาเพิ่มรายการวัตถุดิบอย่างน้อย 1 รายการ');
+        return;
+    }
+    
+    const purchaseData = {
+        branch: parseInt(branchId),
+        supplier_name: document.getElementById('purchase-supplier').value,
+        invoice_number: document.getElementById('purchase-invoice').value,
+        payment_status: document.getElementById('purchase-payment-status').value,
+        note: document.getElementById('purchase-note').value
+    };
+    
+    try {
+        console.log('Creating purchase:', purchaseData);
+        const response = await fetch(`${API_BASE}/purchases/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(purchaseData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to create purchase: ${errorText}`);
+        }
+        
+        const purchase = await response.json();
+        console.log('Purchase created:', purchase);
+        
+        // เพิ่มรายการวัตถุดิบ
+        for (const item of validItems) {
+            const itemData = {
+                purchase: purchase.id,
+                ingredient: item.ingredient,
+                quantity: item.quantity,
+                unit_price: item.unit_price
+            };
+            console.log('Adding purchase item:', itemData);
+            await fetch(`${API_BASE}/purchase-items/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(itemData)
+            });
+        }
+        
+        alert('บันทึกใบจัดซื้อเรียบร้อยแล้ว');
+        closeAddModal();
+        loadPurchases();
+    } catch (error) {
+        console.error('Error saving purchase:', error);
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+    }
+}
+
+// ดูรายละเอียดใบจัดซื้อ
+function viewPurchase(id) {
+    alert('ดูรายละเอียดใบจัดซื้อ #' + id);
+}
+</script>
+{% endblock %}

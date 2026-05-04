@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Owner, Branch, Ingredient, Recipe, RecipeItem, Menu, Sale, Setting
+from .models import Owner, Branch, Ingredient, Recipe, RecipeItem, Menu, Sale, Setting, PriceHistory, Purchase, PurchaseItem
 
 
 class OwnerSerializer(serializers.ModelSerializer):
@@ -64,4 +64,35 @@ class SettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Setting
         fields = ['id', 'branch', 'branch_name', 'business_name', 'tax_rate', 'currency', 'created_at', 'updated_at']
+
+
+class PriceHistorySerializer(serializers.ModelSerializer):
+    ingredient_name = serializers.CharField(source='ingredient.name', read_only=True)
+    purchase_id = serializers.IntegerField(source='purchase.id', read_only=True)
+    
+    class Meta:
+        model = PriceHistory
+        fields = ['id', 'ingredient', 'ingredient_name', 'price', 'quantity_purchased', 'purchase', 'purchase_id', 'effective_date', 'note']
+
+
+class PurchaseItemSerializer(serializers.ModelSerializer):
+    ingredient_name = serializers.CharField(source='ingredient.name', read_only=True)
+    ingredient_unit = serializers.CharField(source='ingredient.unit', read_only=True)
+    
+    class Meta:
+        model = PurchaseItem
+        fields = ['id', 'purchase', 'ingredient', 'ingredient_name', 'ingredient_unit', 'quantity', 'unit_price', 'total_price']
+
+
+class PurchaseSerializer(serializers.ModelSerializer):
+    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    items = PurchaseItemSerializer(many=True, read_only=True)
+    supplier_name_display = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Purchase
+        fields = ['id', 'branch', 'branch_name', 'supplier_name', 'invoice_number', 'purchase_date', 'total_amount', 'payment_status', 'note', 'items', 'created_at', 'updated_at', 'supplier_name_display']
+    
+    def get_supplier_name_display(self, obj):
+        return obj.get_payment_status_display()
 

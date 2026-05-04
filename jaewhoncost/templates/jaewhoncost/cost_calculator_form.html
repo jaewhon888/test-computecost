@@ -41,33 +41,37 @@
         {% csrf_token %}
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-            <!-- คอลัมน์ซ้าย: เลือกสูตรและพารามิเตอร์หลัก -->
-            <div>
-                <h5>🍽️ เลือกสูตรอาหาร</h5>
-                <div class="form-group" style="margin-bottom: 15px;">
-                    {{ form.recipe.label_tag }}
-                    {{ form.recipe }}
-                </div>
-                
-                <h5>⚙️ ตั้งค่าการคำนวณ</h5>
-                <div class="form-group" style="margin-bottom: 15px;">
-                    {{ form.waste_percent.label_tag }}
-                    {{ form.waste_percent }}
-                    <small style="color: #666;">{{ form.waste_percent.help_text }}</small>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 15px;">
-                    {{ form.target_food_cost_percent.label_tag }}
-                    {{ form.target_food_cost_percent }}
-                    <small style="color: #666;">{{ form.target_food_cost_percent.help_text }}</small>
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 15px;">
-                    {{ form.actual_selling_price.label_tag }}
-                    {{ form.actual_selling_price }}
-                    <small style="color: #666;">{{ form.actual_selling_price.help_text }}</small>
-                </div>
-            </div>
+<!-- คอลัมน์ซ้าย: เลือกสูตรและพารามิเตอร์หลัก -->
+<div>
+    <h5>🍽️ เลือกสูตรอาหาร</h5>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;" id="recipe-cards">
+        <!-- Recipe cards will be loaded here by JavaScript -->
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 15px; display: none;" id="selected-recipe-info">
+        <strong>สูตรที่เลือก: </strong><span id="selected-recipe-name"></span>
+        <input type="hidden" id="id_recipe" name="recipe" value="">
+    </div>
+    
+    <h5>⚙️ ตั้งค่าการคำนวณ</h5>
+    <div class="form-group" style="margin-bottom: 15px;">
+        {{ form.waste_percent.label_tag }}
+        {{ form.waste_percent }}
+        <small style="color: #666;">{{ form.waste_percent.help_text }}</small>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 15px;">
+        {{ form.target_food_cost_percent.label_tag }}
+        {{ form.target_food_cost_percent }}
+        <small style="color: #666;">{{ form.target_food_cost_percent.help_text }}</small>
+    </div>
+    
+    <div class="form-group" style="margin-bottom: 15px;">
+        {{ form.actual_selling_price.label_tag }}
+        {{ form.actual_selling_price }}
+        <small style="color: #666;">{{ form.actual_selling_price.help_text }}</small>
+    </div>
+</div>
             
             <!-- คอลัมน์ขวา: Overhead Costs -->
             <div>
@@ -108,8 +112,13 @@
             </div>
         </div>
         
-        <div style="margin-top: 20px; text-align: center; color: #666; font-size: 14px;">
-            💡 ระบบจะคำนวณทันทีเมื่อมีการเปลี่ยนแปลงข้อมูล (Real-time Calculation)
+        <div style="margin-top: 20px; text-align: center;">
+            <button type="button" class="btn btn-primary" onclick="calculateCost()" style="padding: 15px 40px; font-size: 16px;">
+                💰 คำนวณต้นทุน
+            </button>
+            <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                💡 กดปุ่มเพื่อคำนวณต้นทุนตามค่าที่ตั้งไว้
+            </p>
         </div>
     </form>
 </div>
@@ -187,70 +196,166 @@
         return cookieValue;
     }
     
+    // ตัวแปรเก็บ recipes
+    let recipes = [];
+    let selectedRecipeId = null;
+    
+    // โหลด recipes เมื่อหน้าโหลด
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded - Loading recipes as cards');
+        loadRecipesAsCards();
+    });
+    
+    // ฟังก์ชันโหลด recipes และแสดงแบบ Card
+    async function loadRecipesAsCards() {
+        try {
+            const response = await fetch('/api/recipes/');
+            recipes = await response.json();
+            
+            const container = document.getElementById('recipe-cards');
+            container.innerHTML = '';
+            
+            recipes.forEach(recipe => {
+                const itemCount = recipe.items ? recipe.items.length : 0;
+                const card = document.createElement('div');
+                card.style.cssText = 'border: 2px solid #ddd; border-radius: 8px; padding: 15px; cursor: pointer; transition: all 0.3s; background: white;';
+                card.onmouseover = () => { card.style.borderColor = '#667eea'; card.style.transform = 'translateY(-2px)'; card.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)'; };
+                card.onmouseout = () => { if (selectedRecipeId !== recipe.id) { card.style.borderColor = '#ddd'; card.style.transform = 'none'; card.style.boxShadow = 'none'; } };
+                card.onclick = () => selectRecipe(recipe.id);
+                card.id = 'recipe-card-' + recipe.id;
+                
+                card.innerHTML = `
+                    <div style="font-size: 24px; margin-bottom: 8px;">🍽️</div>
+                    <h5 style="margin: 0 0 8px 0; color: #333;">${recipe.name}</h5>
+                    <p style="margin: 0; color: #666; font-size: 13px;">สาขา: ${recipe.branch_name || '-'}</p>
+                    <p style="margin: 5px 0 0 0; color: #666; font-size: 13px;">วัตถุดิบ: ${itemCount} รายการ</p>
+                `;
+                
+                container.appendChild(card);
+            });
+        } catch (error) {
+            console.error('Error loading recipes:', error);
+        }
+    }
+    
+    // ฟังก์ชันเลือกสูตร
+    function selectRecipe(recipeId) {
+        // ลบการเลือกเดิม
+        if (selectedRecipeId) {
+            const prevCard = document.getElementById('recipe-card-' + selectedRecipeId);
+            if (prevCard) {
+                prevCard.style.borderColor = '#ddd';
+                prevCard.style.background = 'white';
+                prevCard.style.transform = 'none';
+                prevCard.style.boxShadow = 'none';
+            }
+        }
+        
+        // เลือกใหม่
+        selectedRecipeId = recipeId;
+        const card = document.getElementById('recipe-card-' + recipeId);
+        if (card) {
+            card.style.borderColor = '#667eea';
+            card.style.background = 'linear-gradient(135deg, #667eea20 0%, #764ba220 100%)';
+        }
+        
+        // อัปเดตฟอร์ม
+        document.getElementById('id_recipe').value = recipeId;
+        const recipe = recipes.find(r => r.id === recipeId);
+        if (recipe) {
+            document.getElementById('selected-recipe-name').textContent = recipe.name;
+            document.getElementById('selected-recipe-info').style.display = 'block';
+        }
+        
+        console.log('Selected recipe:', recipeId);
+    }
+    
     // ตัวแปรเก็บ timeout สำหรับ debounce
     let calculateTimeout = null;
     
-    // ฟังก์ชันคำนวณต้นทุนแบบ Real-time (มี debounce)
+    // ฟังก์ชันคำนวณต้นทุน (กดปุ่ม) - เวอร์ชันเรียบง่าย
     function calculateCost() {
         console.log('calculateCost() called');
         
         const recipeId = document.getElementById('id_recipe').value;
         if (!recipeId) {
-            console.log('No recipe selected');
+            alert('กรุณาเลือกสูตรอาหารก่อน');
             return;
         }
         
-        // Debounce: รอ 300ms หลังจากการพิมพ์/เปลี่ยนแปลงสุดท้าย
-        if (calculateTimeout) {
-            clearTimeout(calculateTimeout);
+        // ปุ่มกดแล้วเปลี่ยนสี/ข้อความชั่วคราว
+        const btn = document.querySelector('button.btn-primary');
+        if (!btn) {
+            console.error('Button not found!');
+            alert('เกิดข้อผิดพลาด: ไม่พบปุ่มคำนวณ');
+            return;
+        }
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '⏳ กำลังคำนวณ...';
+        btn.disabled = true;
+        
+        // เก็บข้อมูลจากฟอร์ม
+        const formData = {
+            waste_percent: parseFloat(document.getElementById('id_waste_percent').value) || 5.0,
+            target_food_cost_percent: parseFloat(document.getElementById('id_target_food_cost_percent').value) || 30.0,
+            overhead_utilities: parseFloat(document.getElementById('id_overhead_utilities').value) || 0,
+            overhead_labor: parseFloat(document.getElementById('id_overhead_labor').value) || 0,
+            overhead_rent: parseFloat(document.getElementById('id_overhead_rent').value) || 0,
+            overhead_depreciation: parseFloat(document.getElementById('id_overhead_depreciation').value) || 0,
+            overhead_marketing: parseFloat(document.getElementById('id_overhead_marketing').value) || 0,
+            overhead_delivery: parseFloat(document.getElementById('id_overhead_delivery').value) || 0,
+        };
+        
+        const actualSellingPrice = document.getElementById('id_actual_selling_price').value;
+        if (actualSellingPrice) {
+            formData.actual_selling_price = parseFloat(actualSellingPrice);
         }
         
-        calculateTimeout = setTimeout(() => {
-            console.log('Executing calculation for recipe:', recipeId);
-            
-            // เก็บข้อมูลจากฟอร์ม
-            const formData = {
-                waste_percent: parseFloat(document.getElementById('id_waste_percent').value) || 5.0,
-                target_food_cost_percent: parseFloat(document.getElementById('id_target_food_cost_percent').value) || 30.0,
-                overhead_utilities: parseFloat(document.getElementById('id_overhead_utilities').value) || 0,
-                overhead_labor: parseFloat(document.getElementById('id_overhead_labor').value) || 0,
-                overhead_rent: parseFloat(document.getElementById('id_overhead_rent').value) || 0,
-                overhead_depreciation: parseFloat(document.getElementById('id_overhead_depreciation').value) || 0,
-                overhead_marketing: parseFloat(document.getElementById('id_overhead_marketing').value) || 0,
-                overhead_delivery: parseFloat(document.getElementById('id_overhead_delivery').value) || 0,
-            };
-            
-            const actualSellingPrice = document.getElementById('id_actual_selling_price').value;
-            if (actualSellingPrice) {
-                formData.actual_selling_price = parseFloat(actualSellingPrice);
+        console.log('Sending data:', formData);
+        console.log('Recipe ID:', recipeId);
+        
+        // เรียก API แบบ AJAX - ใช้ URL เต็มตามที่ memory แนะนำ
+        const apiUrl = window.location.origin + '/api/recipes/' + recipeId + '/calculate_cost/';
+        console.log('API URL:', apiUrl);
+        
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
             }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received data:', data);
+            // ตรวจสอบว่ามี result-container หรือไม่
+            const container = document.getElementById('result-container');
+            if (!container) {
+                console.error('result-container not found!');
+                alert('เกิดข้อผิดพลาด: ไม่พบส่วนแสดงผลลัพธ์');
+                return;
+            }
+            displayResults(data);
             
-            console.log('Sending data:', formData);
+            // คืนสถาะปุ่ม
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            alert('เกิดข้อผิดพลาด: ' + error.message);
             
-            // เรียก API แบบ AJAX
-            fetch('/api/recipes/' + recipeId + '/calculate_cost/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    throw new Error('HTTP error! status: ' + response.status);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Received data:', data);
-                displayResults(data);
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-            });
-        }, 300);
+            // คืนสถาะปุ่ม
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        });
     }
     
     // ฟังก์ชันแสดงผลลัพธ์
@@ -338,35 +443,6 @@
         // Scroll ไปที่ผลลัพธ์
         container.scrollIntoView({ behavior: 'smooth' });
     }
-    
-    // ฟังก์ชันเลือกสูตรจากตาราง
-    function loadRecipe(recipeId) {
-        document.getElementById('id_recipe').value = recipeId;
-        calculateCost();
-    }
-    
-    // ผูก event listeners ทุกช่อง input และ select ให้คำนวณทันทีเมื่อมีการเปลี่ยนแปลง
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM fully loaded');
-        
-        // ผูก event กับทุก input และ select ในฟอร์ม
-        const inputs = document.querySelectorAll('#cost-form input, #cost-form select');
-        inputs.forEach(input => {
-            input.addEventListener('input', function() {
-                calculateCost();
-            });
-            input.addEventListener('change', function() {
-                calculateCost();
-            });
-        });
-        
-        // ถ้ามีการเลือกสูตรไว้แล้ว ให้คำนวณทันที
-        const recipeSelect = document.getElementById('id_recipe');
-        if (recipeSelect && recipeSelect.value) {
-            console.log('Recipe pre-selected, calculating...');
-            calculateCost();
-        }
-    });
 </script>
 {% endblock %}
 

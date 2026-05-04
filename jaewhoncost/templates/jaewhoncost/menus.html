@@ -1,256 +1,322 @@
-     1|{% extends 'jaewhoncost/base.html' %}
-     2|
-     3|{% block title %}Menus - Restaurant Management{% endblock %}
-     4|{% block page_title %}Menus Management{% endblock %}
-     5|
-     6|{% block content %}
-     7|<div class="page-header">
-     8|    <h3>🍽️ Menus</h3>
-     9|    <button class="btn btn-primary" onclick="openAddModal()">+ Add Menu</button>
-    10|</div>
-    11|
-    12|<div class="card">
-    13|    <table id="menus-table">
-    14|        <thead>
-    15|            <tr>
-    16|                <th>Name</th>
-    17|                <th>Branch</th>
-    18|                <th>Recipe</th>
-    19|                <th>Price</th>
-    20|                <th>Description</th>
-    21|                <th>Actions</th>
-    22|            </tr>
-    23|        </thead>
-    24|        <tbody>
-    25|            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
-    26|        </tbody>
-    27|    </table>
-    28|</div>
-    29|
-    30|<!-- Add/Edit Modal -->
-    31|<div id="menuModal" class="modal">
-    32|    <div class="modal-content">
-    33|        <span class="close" onclick="closeModal()">&times;</span>
-    34|        <h2>Add/Edit Menu</h2>
-    35|        <form id="menuForm">
-    36|            <div class="form-group">
-    37|                <label>Branch:</label>
-    38|                <select id="branch_id" required onchange="loadRecipesByBranch()">
-    39|                    <option value="">Select Branch</option>
-    40|                </select>
-    41|            </div>
-    42|            <div class="form-group">
-    43|                <label>Recipe:</label>
-    44|                <select id="recipe_id" required>
-    45|                    <option value="">Select Recipe</option>
-    46|                </select>
-    47|            </div>
-    48|            <div class="form-group">
-    49|                <label>Name:</label>
-    50|                <input type="text" id="name" required>
-    51|            </div>
-    52|            <div class="form-group">
-    53|                <label>Price:</label>
-    54|                <input type="number" id="price" step="0.01" required>
-    55|            </div>
-    56|            <div class="form-group">
-    57|                <label>Description:</label>
-    58|                <textarea id="description" rows="4"></textarea>
-    59|            </div>
-    60|            <button type="submit" class="btn btn-primary">Save</button>
-    61|            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-    62|        </form>
-    63|    </div>
-    64|</div>
-    65|
-    66|<style>
-    67|    .page-header {
-    68|        display: flex;
-    69|        justify-content: space-between;
-    70|        align-items: center;
-    71|        margin-bottom: 20px;
-    72|    }
-    73|
-    74|    .modal {
-    75|        display: none;
-    76|        position: fixed;
-    77|        z-index: 1000;
-    78|        left: 0;
-    79|        top: 0;
-    80|        width: 100%;
-    81|        height: 100%;
-    82|        background-color: rgba(0, 0, 0, 0.5);
-    83|    }
-    84|
-    85|    .modal-content {
-    86|        background-color: white;
-    87|        margin: 5% auto;
-    88|        padding: 30px;
-    89|        border-radius: 8px;
-    90|        width: 90%;
-    91|        max-width: 500px;
-    92|        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    93|    }
-    94|
-    95|    .close {
-    96|        color: var(--navy);
-    97|        float: right;
-    98|        font-size: 28px;
-    99|        font-weight: bold;
-   100|        cursor: pointer;
-   101|    }
-   102|
-   103|    .close:hover {
-   104|        color: var(--gold);
-   105|    }
-   106|</style>
-   107|
-   108|<script>
-   109|    const API_BASE = window.location.origin + '/api';
-   110|    let currentMenuId = null;
-   111|
-   112|    async function loadMenus( ) {
-   113|        try {
-   114|            const response = await fetch(`${API_BASE}/menus/`);
-   115|            const menus = await response.json();
-   116|            const tbody = document.querySelector('#menus-table tbody');
-   117|            tbody.innerHTML = '';
-   118|
-   119|            menus.forEach(menu => {
-   120|                const row = tbody.insertRow();
-   121|                row.innerHTML = `
-   122|                    <td>${menu.name}</td>
-   123|                    <td>${menu.branch_name}</td>
-   124|                    <td>${menu.recipe_name}</td>
-   125|                    <td>฿${menu.price}</td>
-   126|                    <td>${menu.description || '-'}</td>
-   127|                    <td>
-   128|                        <button class="btn btn-primary" onclick="editMenu(${menu.id})">Edit</button>
-   129|                        <button class="btn btn-danger" onclick="deleteMenu(${menu.id})">Delete</button>
-   130|                    </td>
-   131|                `;
-   132|            });
-   133|
-   134|            if (menus.length === 0) {
-   135|                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No menus</td></tr>';
-   136|            }
-   137|        } catch (error) {
-   138|            console.error('Error loading menus:', error);
-   139|        }
-   140|    }
-   141|
-   142|    async function loadBranches() {
-   143|        try {
-   144|            const response = await fetch(`${API_BASE}/branches/`);
-   145|            const branches = await response.json();
-   146|            const select = document.getElementById('branch_id');
-   147|            
-   148|            branches.forEach(branch => {
-   149|                const option = document.createElement('option');
-   150|                option.value = branch.id;
-   151|                option.textContent = branch.name;
-   152|                select.appendChild(option);
-   153|            });
-   154|        } catch (error) {
-   155|            console.error('Error loading branches:', error);
-   156|        }
-   157|    }
-   158|
-   159|    async function loadRecipesByBranch() {
-   160|        const branchId = document.getElementById('branch_id').value;
-   161|        const recipeSelect = document.getElementById('recipe_id');
-   162|        recipeSelect.innerHTML = '<option value="">Select Recipe</option>';
-   163|
-   164|        if (!branchId) return;
-   165|
-   166|        try {
-   167|            const response = await fetch(`${API_BASE}/recipes/?branch_id=${branchId}`);
-   168|            const recipes = await response.json();
-   169|            
-   170|            recipes.forEach(recipe => {
-   171|                const option = document.createElement('option');
-   172|                option.value = recipe.id;
-   173|                option.textContent = recipe.name;
-   174|                recipeSelect.appendChild(option);
-   175|            });
-   176|        } catch (error) {
-   177|            console.error('Error loading recipes:', error);
-   178|        }
-   179|    }
-   180|
-   181|    function openAddModal() {
-   182|        currentMenuId = null;
-   183|        document.getElementById('menuForm').reset();
-   184|        document.getElementById('menuModal').style.display = 'block';
-   185|    }
-   186|
-   187|    function closeModal() {
-   188|        document.getElementById('menuModal').style.display = 'none';
-   189|    }
-   190|
-   191|    async function editMenu(id) {
-   192|        try {
-   193|            const response = await fetch(`${API_BASE}/menus/${id}/`);
-   194|            const menu = await response.json();
-   195|            
-   196|            currentMenuId = id;
-   197|            document.getElementById('branch_id').value = menu.branch;
-   198|            await loadRecipesByBranch();
-   199|            document.getElementById('recipe_id').value = menu.recipe;
-   200|            document.getElementById('name').value = menu.name;
-   201|            document.getElementById('price').value = menu.price;
-   202|            document.getElementById('description').value = menu.description || '';
-   203|            
-   204|            document.getElementById('menuModal').style.display = 'block';
-   205|        } catch (error) {
-   206|            console.error('Error loading menu:', error);
-   207|        }
-   208|    }
-   209|
-   210|    async function deleteMenu(id) {
-   211|        if (confirm('Are you sure?')) {
-   212|            try {
-   213|                await fetch(`${API_BASE}/menus/${id}/`, { method: 'DELETE' });
-   214|                loadMenus();
-   215|            } catch (error) {
-   216|                console.error('Error deleting menu:', error);
-   217|            }
-   218|        }
-   219|    }
-   220|
-   221|    document.getElementById('menuForm').addEventListener('submit', async (e) => {
-   222|        e.preventDefault();
-   223|        
-   224|        const data = {
-   225|            branch: document.getElementById('branch_id').value,
-   226|            recipe: document.getElementById('recipe_id').value,
-   227|            name: document.getElementById('name').value,
-   228|            price: document.getElementById('price').value,
-   229|            description: document.getElementById('description').value,
-   230|        };
-   231|
-   232|        try {
-   233|            const method = currentMenuId ? 'PUT' : 'POST';
-   234|            const url = currentMenuId 
-   235|                ? `${API_BASE}/menus/${currentMenuId}/`
-   236|                : `${API_BASE}/menus/`;
-   237|
-   238|            await fetch(url, {
-   239|                method: method,
-   240|                headers: { 'Content-Type': 'application/json' },
-   241|                body: JSON.stringify(data)
-   242|            });
-   243|
-   244|            closeModal();
-   245|            loadMenus();
-   246|        } catch (error) {
-   247|            console.error('Error saving menu:', error);
-   248|        }
-   249|    });
-   250|
-   251|    loadBranches();
-   252|    loadMenus();
-   253|</script>
-   254|{% endblock %}
-   255|
-   256|
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}Menus - Restaurant Management{% endblock %}
+
+{% block page_title %}🍽️ เมนู (Menus Management){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>🍽️ เมนูทั้งหมด</h3>
+    <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มเมนู</button>
+</div>
+
+<div class="card">
+    <table id="menus-table">
+        <thead>
+            <tr>
+                <th>ชื่อเมนู</th>
+                <th>สาขา</th>
+                <th>สูตรอาหาร</th>
+                <th>ราคา</th>
+                <th>คำอธิบาย</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" style="text-align: center;">กำลังโหลด...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="menuModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h2 id="modalTitle">เพิ่มเมนู</h2>
+        <form id="menuForm">
+            <input type="hidden" id="menuId">
+            
+            <div class="form-group">
+                <label>สาขา:</label>
+                <select id="branchSelect" class="form-control" onchange="loadRecipesByBranch()" required>
+                    <option value="">-- เลือกสาขา --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>สูตรอาหาร:</label>
+                <select id="recipeSelect" class="form-control">
+                    <option value="">-- เลือกสูตรอาหาร --</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>ชื่อเมนู:</label>
+                <input type="text" id="menuName" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label>ราคา:</label>
+                <input type="number" id="menuPrice" class="form-control" step="0.01" required>
+            </div>
+            
+            <div class="form-group">
+                <label>คำอธิบาย:</label>
+                <textarea id="menuDescription" rows="4" class="form-control"></textarea>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">บันทึก</button>
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+    }
+    
+    .modal-content {
+        background-color: white;
+        margin: 5% auto;
+        padding: 30px;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        position: relative;
+    }
+    
+    .close {
+        color: #333;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        position: absolute;
+        right: 20px;
+        top: 15px;
+    }
+    
+    .close:hover {
+        color: #000;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+</style>
+
+<script>
+const API_BASE = window.location.origin + '/api';
+let currentMenuId = null;
+let allRecipes = [];
+
+// CSRF Token helper
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function loadMenus() {
+    try {
+        const response = await fetch(`${API_BASE}/menus/`);
+        const menus = await response.json();
+        const tbody = document.querySelector('#menus-table tbody');
+        tbody.innerHTML = '';
+        
+        menus.forEach(menu => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${menu.name}</td>
+                <td>${menu.branch_name || '-'}</td>
+                <td>${menu.recipe_name || '-'}</td>
+                <td>฿${parseFloat(menu.price).toFixed(2)}</td>
+                <td>${menu.description || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning" onclick="editMenu(${menu.id})">แก้ไข</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteMenu(${menu.id})">ลบ</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        if (menus.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">ยังไม่มีเมนู</td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading menus:', error);
+    }
+}
+
+async function loadBranches() {
+    try {
+        const response = await fetch(`${API_BASE}/branches/`);
+        const branches = await response.json();
+        const select = document.getElementById('branchSelect');
+        select.innerHTML = '<option value="">-- เลือกสาขา --</option>';
+        
+        branches.forEach(branch => {
+            const option = document.createElement('option');
+            option.value = branch.id;
+            option.textContent = branch.name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading branches:', error);
+    }
+}
+
+async function loadAllRecipes() {
+    try {
+        const response = await fetch(`${API_BASE}/recipes/`);
+        allRecipes = await response.json();
+    } catch (error) {
+        console.error('Error loading recipes:', error);
+    }
+}
+
+function loadRecipesByBranch() {
+    const branchId = document.getElementById('branchSelect').value;
+    const recipeSelect = document.getElementById('recipeSelect');
+    recipeSelect.innerHTML = '<option value="">-- เลือกสูตรอาหาร --</option>';
+    
+    if (!branchId) return;
+    
+    const filtered = allRecipes.filter(r => r.branch === parseInt(branchId));
+    filtered.forEach(recipe => {
+        const option = document.createElement('option');
+        option.value = recipe.id;
+        option.textContent = recipe.name;
+        recipeSelect.appendChild(option);
+    });
+}
+
+function openAddModal() {
+    currentMenuId = null;
+    document.getElementById('modalTitle').textContent = 'เพิ่มเมนู';
+    document.getElementById('menuForm').reset();
+    document.getElementById('menuId').value = '';
+    document.getElementById('recipeSelect').innerHTML = '<option value="">-- เลือกสูตรอาหาร --</option>';
+    document.getElementById('menuModal').style.display = 'block';
+}
+
+function closeModal() {
+    document.getElementById('menuModal').style.display = 'none';
+}
+
+async function editMenu(id) {
+    try {
+        const response = await fetch(`${API_BASE}/menus/${id}/`);
+        const menu = await response.json();
+        
+        currentMenuId = id;
+        document.getElementById('modalTitle').textContent = 'แก้ไขเมนู';
+        document.getElementById('menuId').value = menu.id;
+        document.getElementById('branchSelect').value = menu.branch;
+        
+        // Load recipes for this branch
+        loadRecipesByBranch();
+        
+        // Wait a bit for recipes to load then set selected recipe
+        setTimeout(() => {
+            document.getElementById('recipeSelect').value = menu.recipe || '';
+        }, 100);
+        
+        document.getElementById('menuName').value = menu.name;
+        document.getElementById('menuPrice').value = menu.price;
+        document.getElementById('menuDescription').value = menu.description || '';
+        
+        document.getElementById('menuModal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading menu:', error);
+    }
+}
+
+async function deleteMenu(id) {
+    if (!confirm('ยืนยันการลบเมนูนี้?')) return;
+    
+    try {
+        await fetch(`${API_BASE}/menus/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        loadMenus();
+    } catch (error) {
+        console.error('Error deleting menu:', error);
+    }
+}
+
+document.getElementById('menuForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+        branch: document.getElementById('branchSelect').value,
+        recipe: document.getElementById('recipeSelect').value || null,
+        name: document.getElementById('menuName').value,
+        price: document.getElementById('menuPrice').value,
+        description: document.getElementById('menuDescription').value
+    };
+    
+    try {
+        const method = currentMenuId ? 'PUT' : 'POST';
+        const url = currentMenuId 
+            ? `${API_BASE}/menus/${currentMenuId}/`
+            : `${API_BASE}/menus/`;
+        
+        await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        closeModal();
+        loadMenus();
+    } catch (error) {
+        console.error('Error saving menu:', error);
+    }
+});
+
+// Load data on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadBranches();
+    loadAllRecipes();
+    loadMenus();
+});
+</script>
+{% endblock %}

@@ -156,3 +156,97 @@ class Setting(models.Model):
     def __str__(self):
         return f"Setting - {self.branch.name}"
 
+
+# ===== 9. PriceHistory Model =====
+class PriceHistory(models.Model):
+    """ประวัติราคาวัตถุดิบตามช่วงเวลา"""
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='price_history')
+    price = models.DecimalField(max_digits=10, decimal_places=4)
+    quantity_purchased = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    purchase = models.ForeignKey('Purchase', on_delete=models.SET_NULL, null=True, blank=True, related_name='price_histories')
+    effective_date = models.DateTimeField(auto_now_add=True)
+    note = models.CharField(max_length=255, blank=True)
+    
+    class Meta:
+        verbose_name = 'ประวัติราคาวัตถุดิบ'
+        verbose_name_plural = 'ประวัติราคาวัตถุดิบ'
+        ordering = ['-effective_date']
+    
+    def __str__(self):
+        return f"{self.ingredient.name}: {self.price} บาท ({self.effective_date.strftime('%d/%m/%Y')})"
+
+
+# ===== 10. Purchase Model =====
+class Purchase(models.Model):
+    """การจัดซื้อวัตถุดิบ"""
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'รอชำระ'),
+        ('paid', 'ชำระแล้ว'),
+        ('partial', 'ชำระบางส่วน'),
+    ]
+    
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='purchases')
+    supplier_name = models.CharField(max_length=100, blank=True)
+    invoice_number = models.CharField(max_length=50, blank=True)
+    purchase_date = models.DateTimeField(auto_now_add=True)
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'การจัดซื้อ'
+        verbose_name_plural = 'การจัดซื้อ'
+        ordering = ['-purchase_date']
+    
+    def __str__(self):
+        return f"จัดซื้อ #{self.id} - {self.branch.name} ({self.purchase_date.strftime('%d/%m/%Y')})"
+    
+    def update_total(self):
+        """อัปเดตยอดรวมจากรายการจัดซื้อ"""
+        total = sum(item.total_price for item in self.items.all())
+        self.total_amount = total
+        self.save()
+
+
+# ===== 11. PurchaseItem Model =====
+class PurchaseItem(models.Model):
+    """รายการวัตถุดิบในใบจัดซื้อ"""
+    purchase = models.ForeignKey(Purchase, on_delete=models.CASCADE, related_name='items')
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=10, decimal_places=4)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=4)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2, blank=True)
+    
+    class Meta:
+        verbose_name = 'รายการจัดซื้อ'
+        verbose_name_plural = 'รายการจัดซื้อ'
+        unique_together = ['purchase', 'ingredient']
+    
+    def __str__(self):
+        return f"{self.ingredient.name} x {self.quantity} {self.ingredient.unit}"
+    
+    def save(self, *args, **kwargs):
+        # คำนวณราคารวม
+        self.total_price = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
+        
+        # อัปเดตสต็อกและราคาวัตถุดิบ
+        ingredient = self.ingredient
+        ingredient.stock += int(self.quantity)
+        ingredient.price = self.unit_price
+        ingredient.save()
+        
+        # บันทึกประวัติราคา
+        PriceHistory.objects.create(
+            ingredient=ingredient,
+            price=self.unit_price,
+            quantity_purchased=self.quantity,
+            purchase=self.purchase,
+            note=f"จัดซื้อจากใบจัดซื้อ #{self.purchase.id}"
+        )
+        
+        # อัปเดตยอดรวมใบจัดซื้อ
+        self.purchase.update_total()
+

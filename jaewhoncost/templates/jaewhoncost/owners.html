@@ -1,58 +1,224 @@
-     1|{% extends 'jaewhoncost/base.html' %}
-     2|
-     3|{% block title %}Owners - Restaurant Management{% endblock %}
-     4|{% block page_title %}Owners{% endblock %}
-     5|
-     6|{% block content %}
-     7|<div class="card">
-     8|    <h3>👤 Owners</h3>
-     9|    <table id="owners-table">
-    10|        <thead>
-    11|            <tr>
-    12|                <th>Name</th>
-    13|                <th>Email</th>
-    14|                <th>Phone</th>
-    15|                <th>Address</th>
-    16|                <th>Created</th>
-    17|            </tr>
-    18|        </thead>
-    19|        <tbody>
-    20|            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-    21|        </tbody>
-    22|    </table>
-    23|</div>
-    24|
-    25|<script>
-    26|    const API_BASE = window.location.origin + '/api';
-    27|
-    28|    async function loadOwners( ) {
-    29|        try {
-    30|            const response = await fetch(`${API_BASE}/owners/`);
-    31|            const owners = await response.json();
-    32|            const tbody = document.querySelector('#owners-table tbody');
-    33|            tbody.innerHTML = '';
-    34|
-    35|            owners.forEach(owner => {
-    36|                const row = tbody.insertRow();
-    37|                row.innerHTML = `
-    38|                    <td>${owner.name}</td>
-    39|                    <td>${owner.email}</td>
-    40|                    <td>${owner.phone}</td>
-    41|                    <td>${owner.address}</td>
-    42|                    <td>${new Date(owner.created_at).toLocaleDateString('th-TH')}</td>
-    43|                `;
-    44|            });
-    45|
-    46|            if (owners.length === 0) {
-    47|                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No owners</td></tr>';
-    48|            }
-    49|        } catch (error) {
-    50|            console.error('Error loading owners:', error);
-    51|        }
-    52|    }
-    53|
-    54|    loadOwners();
-    55|</script>
-    56|{% endblock %}
-    57|
-    58|
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}Owners - Restaurant Management{% endblock %}
+{% block page_title %}Owners{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>👥 Owners List</h3>
+        <button class="btn btn-primary" onclick="openOwnerModal()">+ Add Owner</button>
+    </div>
+    
+    <!-- Filters -->
+    <div class="filters" style="margin-bottom: 20px;">
+        <input type="text" id="searchOwner" placeholder="Search owner name..." class="form-control" style="width: 300px; display: inline-block;">
+    </div>
+    
+    <!-- Owners Table -->
+    <table class="data-table" id="owners-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Branches</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Owner Modal -->
+<div id="ownerModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeOwnerModal()">&times;</span>
+        <h2 id="ownerModalTitle">Add Owner</h2>
+        <form id="ownerForm">
+            <input type="hidden" id="ownerId">
+            
+            <div class="form-group">
+                <label for="ownerName">Name *</label>
+                <input type="text" id="ownerName" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="ownerPhone">Phone</label>
+                <input type="text" id="ownerPhone">
+            </div>
+            
+            <div class="form-group">
+                <label for="ownerEmail">Email</label>
+                <input type="email" id="ownerEmail">
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <button type="button" class="btn btn-secondary" onclick="closeOwnerModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API_BASE = window.location.origin + '/api';
+let owners = [];
+
+async function loadOwners() {
+    try {
+        const response = await fetch(`${API_BASE}/owners/`);
+        owners = await response.json();
+        renderOwners(owners);
+    } catch (error) {
+        console.error('Error loading owners:', error);
+    }
+}
+
+function renderOwners(data) {
+    const tbody = document.querySelector('#owners-table tbody');
+    tbody.innerHTML = '';
+    
+    const search = document.getElementById('searchOwner').value.toLowerCase();
+    const filtered = data.filter(o => 
+        o.name.toLowerCase().includes(search) ||
+        (o.email && o.email.toLowerCase().includes(search))
+    );
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No owners found</td></tr>';
+        return;
+    }
+    
+    filtered.forEach(owner => {
+        const date = new Date(owner.created_at).toLocaleDateString('th-TH');
+        const branchCount = owner.branches ? owner.branches.length : 0;
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>${owner.name}</td>
+            <td>${owner.phone || '-'}</td>
+            <td>${owner.email || '-'}</td>
+            <td>${branchCount} branch(es)</td>
+            <td>${date}</td>
+            <td>
+                <button class="btn btn-sm btn-edit" onclick="editOwner(${owner.id})">Edit</button>
+                <button class="btn btn-sm btn-delete" onclick="deleteOwner(${owner.id})">Delete</button>
+            </td>
+        `;
+    });
+}
+
+function openOwnerModal(ownerId = null) {
+    const modal = document.getElementById('ownerModal');
+    modal.style.display = 'block';
+    
+    if (ownerId) {
+        document.getElementById('ownerModalTitle').textContent = 'Edit Owner';
+        const owner = owners.find(o => o.id === ownerId);
+        document.getElementById('ownerId').value = owner.id;
+        document.getElementById('ownerName').value = owner.name;
+        document.getElementById('ownerPhone').value = owner.phone || '';
+        document.getElementById('ownerEmail').value = owner.email || '';
+    } else {
+        document.getElementById('ownerModalTitle').textContent = 'Add Owner';
+        document.getElementById('ownerForm').reset();
+        document.getElementById('ownerId').value = '';
+    }
+}
+
+function closeOwnerModal() {
+    document.getElementById('ownerModal').style.display = 'none';
+}
+
+// Form submission
+document.getElementById('ownerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const ownerId = document.getElementById('ownerId').value;
+    const data = {
+        name: document.getElementById('ownerName').value,
+        phone: document.getElementById('ownerPhone').value,
+        email: document.getElementById('ownerEmail').value
+    };
+    
+    const method = ownerId ? 'PUT' : 'POST';
+    const url = ownerId ? `${API_BASE}/owners/${ownerId}/` : `${API_BASE}/owners/`;
+    
+    try {
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            closeOwnerModal();
+            loadOwners();
+        } else {
+            alert('Error saving owner');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error saving owner');
+    }
+});
+
+async function deleteOwner(ownerId) {
+    if (!confirm('Delete this owner?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/owners/${ownerId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (response.ok) {
+            loadOwners();
+        } else {
+            alert('Error deleting owner');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting owner');
+    }
+}
+
+function editOwner(ownerId) {
+    openOwnerModal(ownerId);
+}
+
+// Search functionality
+document.getElementById('searchOwner').addEventListener('input', () => {
+    renderOwners(owners);
+});
+
+// Get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Initial load
+loadOwners();
+</script>
+{% endblock %}

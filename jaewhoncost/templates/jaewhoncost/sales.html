@@ -1,248 +1,512 @@
-     1|{% extends 'jaewhoncost/base.html' %}
-     2|
-     3|{% block title %}Sales - Restaurant Management{% endblock %}
-     4|{% block page_title %}Sales Report{% endblock %}
-     5|
-     6|{% block content %}
-     7|<div class="page-header">
-     8|    <h3>💰 Sales Report</h3>
-     9|    <div class="filters">
-    10|        <select id="branchFilter" onchange="loadSales()">
-    11|            <option value="">All Branches</option>
-    12|        </select>
-    13|        <input type="date" id="dateFilter" onchange="loadSales()">
-    14|    </div>
-    15|</div>
-    16|
-    17|<div class="card">
-    18|    <h3>📊 Sales Summary</h3>
-    19|    <div class="stats-grid">
-    20|        <div class="stat-item">
-    21|            <div class="stat-number" id="total-sales-amount">฿0</div>
-    22|            <div class="stat-label">Total Sales</div>
-    23|        </div>
-    24|        <div class="stat-item">
-    25|            <div class="stat-number" id="total-transactions">0</div>
-    26|            <div class="stat-label">Transactions</div>
-    27|        </div>
-    28|        <div class="stat-item">
-    29|            <div class="stat-number" id="avg-transaction">฿0</div>
-    30|            <div class="stat-label">Avg Transaction</div>
-    31|        </div>
-    32|    </div>
-    33|</div>
-    34|
-    35|<div class="card">
-    36|    <h3>📈 Daily Sales Chart</h3>
-    37|    <canvas id="salesChart"></canvas>
-    38|</div>
-    39|
-    40|<div class="card">
-    41|    <h3>📋 Sales Details</h3>
-    42|    <table id="sales-table">
-    43|        <thead>
-    44|            <tr>
-    45|                <th>Date</th>
-    46|                <th>Menu</th>
-    47|                <th>Branch</th>
-    48|                <th>Quantity</th>
-    49|                <th>Total Price</th>
-    50|            </tr>
-    51|        </thead>
-    52|        <tbody>
-    53|            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-    54|        </tbody>
-    55|    </table>
-    56|</div>
-    57|
-    58|<style>
-    59|    .page-header {
-    60|        display: flex;
-    61|        justify-content: space-between;
-    62|        align-items: center;
-    63|        margin-bottom: 20px;
-    64|    }
-    65|
-    66|    .filters {
-    67|        display: flex;
-    68|        gap: 10px;
-    69|    }
-    70|
-    71|    .filters select,
-    72|    .filters input {
-    73|        padding: 8px 12px;
-    74|        border: 1px solid var(--light-gold);
-    75|        border-radius: 4px;
-    76|    }
-    77|
-    78|    .stats-grid {
-    79|        display: grid;
-    80|        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    81|        gap: 15px;
-    82|        margin-top: 15px;
-    83|    }
-    84|
-    85|    .stat-item {
-    86|        background: linear-gradient(135deg, var(--gold) 0%, var(--light-gold) 100%);
-    87|        padding: 20px;
-    88|        border-radius: 8px;
-    89|        text-align: center;
-    90|        color: var(--navy);
-    91|    }
-    92|
-    93|    .stat-number {
-    94|        font-size: 28px;
-    95|        font-weight: bold;
-    96|        margin-bottom: 10px;
-    97|    }
-    98|
-    99|    .stat-label {
-   100|        font-size: 14px;
-   101|        opacity: 0.8;
-   102|    }
-   103|</style>
-   104|
-   105|<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-   106|<script>
-   107|    const API_BASE = window.location.origin + '/api';
-   108|    let salesChart = null;
-   109|
-   110|    async function loadBranches( ) {
-   111|        try {
-   112|            const response = await fetch(`${API_BASE}/branches/`);
-   113|            const branches = await response.json();
-   114|            const select = document.getElementById('branchFilter');
-   115|            
-   116|            branches.forEach(branch => {
-   117|                const option = document.createElement('option');
-   118|                option.value = branch.id;
-   119|                option.textContent = branch.name;
-   120|                select.appendChild(option);
-   121|            });
-   122|        } catch (error) {
-   123|            console.error('Error loading branches:', error);
-   124|        }
-   125|    }
-   126|
-   127|    async function loadSales() {
-   128|        try {
-   129|            const branchId = document.getElementById('branchFilter').value;
-   130|            const dateFilter = document.getElementById('dateFilter').value;
-   131|            
-   132|            let url = `${API_BASE}/sales/`;
-   133|            if (branchId) url += `?branch_id=${branchId}`;
-   134|
-   135|            const response = await fetch(url);
-   136|            const sales = await response.json();
-   137|
-   138|            // Filter by date if provided
-   139|            let filteredSales = sales;
-   140|            if (dateFilter) {
-   141|                filteredSales = sales.filter(sale => {
-   142|                    const saleDate = new Date(sale.sale_date).toISOString().split('T')[0];
-   143|                    return saleDate === dateFilter;
-   144|                });
-   145|            }
-   146|
-   147|            // Update Summary
-   148|            const totalAmount = filteredSales.reduce((sum, s) => sum + parseFloat(s.total_price), 0);
-   149|            document.getElementById('total-sales-amount').textContent = `฿${totalAmount.toFixed(2)}`;
-   150|            document.getElementById('total-transactions').textContent = filteredSales.length;
-   151|            document.getElementById('avg-transaction').textContent = `฿${(totalAmount / filteredSales.length || 0).toFixed(2)}`;
-   152|
-   153|            // Update Table
-   154|            const tbody = document.querySelector('#sales-table tbody');
-   155|            tbody.innerHTML = '';
-   156|
-   157|            filteredSales.forEach(sale => {
-   158|                const row = tbody.insertRow();
-   159|                row.innerHTML = `
-   160|                    <td>${new Date(sale.sale_date).toLocaleDateString('th-TH')}</td>
-   161|                    <td>${sale.menu_name}</td>
-   162|                    <td>${sale.branch_name}</td>
-   163|                    <td>${sale.quantity}</td>
-   164|                    <td>฿${sale.total_price}</td>
-   165|                `;
-   166|            });
-   167|
-   168|            if (filteredSales.length === 0) {
-   169|                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No sales data</td></tr>';
-   170|            }
-   171|
-   172|            // Update Chart
-   173|            updateChart(filteredSales);
-   174|        } catch (error) {
-   175|            console.error('Error loading sales:', error);
-   176|        }
-   177|    }
-   178|
-   179|    function updateChart(sales) {
-   180|        // Group sales by date
-   181|        const dailySales = {};
-   182|        sales.forEach(sale => {
-   183|            const date = new Date(sale.sale_date).toLocaleDateString('th-TH');
-   184|            dailySales[date] = (dailySales[date] || 0) + parseFloat(sale.total_price);
-   185|        });
-   186|
-   187|        const labels = Object.keys(dailySales).sort();
-   188|        const data = labels.map(label => dailySales[label]);
-   189|
-   190|        const ctx = document.getElementById('salesChart').getContext('2d');
-   191|        
-   192|        if (salesChart) {
-   193|            salesChart.destroy();
-   194|        }
-   195|
-   196|        salesChart = new Chart(ctx, {
-   197|            type: 'line',
-   198|            data: {
-   199|                labels: labels,
-   200|                datasets: [{
-   201|                    label: 'Daily Sales (฿)',
-   202|                    data: data,
-   203|                    borderColor: '#D4AF37',
-   204|                    backgroundColor: 'rgba(212, 175, 55, 0.1)',
-   205|                    borderWidth: 2,
-   206|                    fill: true,
-   207|                    tension: 0.4
-   208|                }]
-   209|            },
-   210|            options: {
-   211|                responsive: true,
-   212|                plugins: {
-   213|                    legend: {
-   214|                        display: true,
-   215|                        labels: {
-   216|                            color: '#1B3A57'
-   217|                        }
-   218|                    }
-   219|                },
-   220|                scales: {
-   221|                    y: {
-   222|                        beginAtZero: true,
-   223|                        ticks: {
-   224|                            color: '#1B3A57'
-   225|                        },
-   226|                        grid: {
-   227|                            color: 'rgba(212, 175, 55, 0.1)'
-   228|                        }
-   229|                    },
-   230|                    x: {
-   231|                        ticks: {
-   232|                            color: '#1B3A57'
-   233|                        },
-   234|                        grid: {
-   235|                            color: 'rgba(212, 175, 55, 0.1)'
-   236|                        }
-   237|                    }
-   238|                }
-   239|            }
-   240|        });
-   241|    }
-   242|
-   243|    loadBranches();
-   244|    loadSales();
-   245|</script>
-   246|{% endblock %}
-   247|
-   248|
+{% extends 'jaewhoncost/base.html' %}
+
+{% block title %}Sales - Restaurant Management{% endblock %}
+
+{% block page_title %}💰 จัดการขาย (Sales Management){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h3>💰 รายการขาย</h3>
+    <button class="btn btn-primary" onclick="showAddModal()">+ เพิ่มรายการขาย</button>
+</div>
+
+<!-- สรุปตัวเลข -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="total-sales-amount">฿0.00</h3>
+        <p style="margin: 5px 0 0 0;">ยอดขายรวม</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="total-transactions">0</h3>
+        <p style="margin: 5px 0 0 0;">จำนวนรายการ</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="today-sales">฿0.00</h3>
+        <p style="margin: 5px 0 0 0;">ยอดขายวันนี้</p>
+    </div>
+    <div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); padding: 20px; border-radius: 8px; color: white;">
+        <h3 style="margin: 0; font-size: 32px;" id="avg-transaction">฿0.00</h3>
+        <p style="margin: 5px 0 0 0;">ค่าเฉลี่ยต่อรายการ</p>
+    </div>
+</div>
+
+<!-- ตัวกรอง -->
+<div class="card" style="margin-bottom: 20px; padding: 15px;">
+    <h4>🔍 ตัวกรอง</h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+        <div>
+            <label>สาขา:</label>
+            <select id="filter-branch" onchange="loadSales()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">ทุกสาขา</option>
+            </select>
+        </div>
+        <div>
+            <label>วันที่เริ่มต้น:</label>
+            <input type="date" id="filter-date-start" onchange="loadSales()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div>
+            <label>วันที่สิ้นสุด:</label>
+            <input type="date" id="filter-date-end" onchange="loadSales()" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        <div style="align-self: end;">
+            <button class="btn btn-secondary" onclick="resetFilters()" style="width: 100%;">ล้างตัวกรอง</button>
+        </div>
+    </div>
+</div>
+
+<!-- กราฟยอดขายรายวัน -->
+<div class="card" style="margin-bottom: 20px;">
+    <h4>📈 ยอดขายรายวัน (7 วันล่าสุด)</h4>
+    <canvas id="salesChart" height="100"></canvas>
+</div>
+
+<!-- ตารางรายการขาย -->
+<div class="card">
+    <h4>📋 รายการขาย</h4>
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #f8f9fa;">
+                <th style="padding: 12px; text-align: left;">#</th>
+                <th style="padding: 12px; text-align: left;">สาขา</th>
+                <th style="padding: 12px; text-align: left;">เมนู</th>
+                <th style="padding: 12px; text-align: right;">จำนวน</th>
+                <th style="padding: 12px; text-align: right;">ราคารวม</th>
+                <th style="padding: 12px; text-align: left;">วันที่ขาย</th>
+                <th style="padding: 12px; text-align: center;">จัดการ</th>
+            </tr>
+        </thead>
+        <tbody id="sales-table-body">
+            <tr>
+                <td colspan="7" style="padding: 30px; text-align: center; color: #666;">กำลังโหลด...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal เพิ่ม/แก้ไขรายการขาย -->
+<div id="sale-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; width: 90%; max-width: 600px; margin: 50px auto; padding: 30px; border-radius: 8px; max-height: 80vh; overflow-y: auto;">
+        <span style="float: right; font-size: 28px; cursor: pointer;" onclick="closeModal()">&times;</span>
+        <h3 id="modal-title">เพิ่มรายการขาย</h3>
+        <form id="sale-form">
+            <input type="hidden" id="sale-id">
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>สาขา *</label>
+                <select id="sale-branch" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="loadMenusByBranch()">
+                    <option value="">เลือกสาขา</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>เมนู *</label>
+                <select id="sale-menu" required style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="updateTotalPrice()">
+                    <option value="">เลือกเมนู</option>
+                </select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>จำนวน *</label>
+                    <input type="number" id="sale-quantity" required min="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" oninput="updateTotalPrice()">
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label>ราคารวม (฿)</label>
+                    <input type="text" id="sale-total" readonly style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label>วันที่ขาย</label>
+                <input type="date" id="sale-date" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const API_BASE = window.location.origin + '/api';
+let salesChart = null;
+let branches = [];
+let allMenus = [];
+let currentSaleId = null;
+
+// เริ่มต้น
+document.addEventListener('DOMContentLoaded', function() {
+    init();
+});
+
+async function init() {
+    try {
+        await loadBranches();
+        await loadMenus();
+        await loadSales();
+        setDefaultDate();
+        console.log('Sales page initialized');
+    } catch (error) {
+        console.error('Initialization error:', error);
+    }
+}
+
+// โหลดสาขา
+async function loadBranches() {
+    try {
+        const response = await fetch(`${API_BASE}/branches/`);
+        branches = await response.json();
+        
+        const branchSelect = document.getElementById('filter-branch');
+        const saleBranchSelect = document.getElementById('sale-branch');
+        
+        branchSelect.innerHTML = '<option value="">ทุกสาขา</option>';
+        saleBranchSelect.innerHTML = '<option value="">เลือกสาขา</option>';
+        
+        branches.forEach(branch => {
+            branchSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
+            saleBranchSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
+        });
+    } catch (error) {
+        console.error('Error loading branches:', error);
+    }
+}
+
+// โหลดเมนูทั้งหมด
+async function loadMenus() {
+    try {
+        const response = await fetch(`${API_BASE}/menus/`);
+        allMenus = await response.json();
+        console.log('Menus loaded:', allMenus.length);
+    } catch (error) {
+        console.error('Error loading menus:', error);
+    }
+}
+
+// โหลดเมนูตามสาขา (สำหรับ dropdown ใน modal)
+function loadMenusByBranch() {
+    const branchId = document.getElementById('sale-branch').value;
+    const menuSelect = document.getElementById('sale-menu');
+    menuSelect.innerHTML = '<option value="">เลือกเมนู</option>';
+    
+    if (!branchId) return;
+    
+    const filteredMenus = allMenus.filter(menu => menu.branch == branchId);
+    filteredMenus.forEach(menu => {
+        menuSelect.innerHTML += `<option value="${menu.id}" data-price="${menu.price}">${menu.name} (฿${parseFloat(menu.price).toFixed(2)})</option>`;
+    });
+}
+
+// ตั้งค่าวันที่เริ่มต้นเป็นวันนี้
+function setDefaultDate() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('sale-date').value = today;
+}
+
+// โหลดรายการขาย
+async function loadSales() {
+    try {
+        const branchId = document.getElementById('filter-branch').value;
+        const dateStart = document.getElementById('filter-date-start').value;
+        const dateEnd = document.getElementById('filter-date-end').value;
+        
+        let url = `${API_BASE}/sales/`;
+        const params = [];
+        
+        if (branchId) params.push(`branch_id=${branchId}`);
+        if (dateStart) params.push(`date_start=${dateStart}`);
+        if (dateEnd) params.push(`date_end=${dateEnd}`);
+        
+        if (params.length > 0) url += '?' + params.join('&');
+        
+        console.log('Loading sales from:', url);
+        const response = await fetch(url);
+        const sales = await response.json();
+        
+        updateSummary(sales);
+        updateTable(sales);
+        updateChart(sales);
+    } catch (error) {
+        console.error('Error loading sales:', error);
+        const tbody = document.getElementById('sales-table-body');
+        tbody.innerHTML = '<tr><td colspan="7" style="padding: 30px; text-align: center; color: #dc3545;">เกิดข้อผิดพลาดในการโหลดข้อมูล</td></tr>';
+    }
+}
+
+// อัพเดตสรุปตัวเลข
+function updateSummary(sales) {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const totalAmount = sales.reduce((sum, sale) => sum + parseFloat(sale.total_price), 0);
+    const todaySales = sales.filter(sale => {
+        const saleDate = new Date(sale.sale_date).toISOString().split('T')[0];
+        return saleDate === today;
+    }).reduce((sum, sale) => sum + parseFloat(sale.total_price), 0);
+    
+    document.getElementById('total-sales-amount').textContent = `฿${totalAmount.toFixed(2)}`;
+    document.getElementById('total-transactions').textContent = sales.length;
+    document.getElementById('today-sales').textContent = `฿${todaySales.toFixed(2)}`;
+    document.getElementById('avg-transaction').textContent = `฿${(totalAmount / (sales.length || 1)).toFixed(2)}`;
+}
+
+// อัพเดตตาราง
+function updateTable(sales) {
+    const tbody = document.getElementById('sales-table-body');
+    tbody.innerHTML = '';
+    
+    if (sales.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="padding: 30px; text-align: center; color: #666;">ไม่พบรายการขาย</td></tr>';
+        return;
+    }
+    
+    sales.forEach(sale => {
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #ddd';
+        row.innerHTML = `
+            <td style="padding: 12px;">#${sale.id}</td>
+            <td style="padding: 12px;">${sale.branch_name}</td>
+            <td style="padding: 12px;">${sale.menu_name}</td>
+            <td style="padding: 12px; text-align: right;">${sale.quantity}</td>
+            <td style="padding: 12px; text-align: right;">฿${parseFloat(sale.total_price).toFixed(2)}</td>
+            <td style="padding: 12px;">${new Date(sale.sale_date).toLocaleDateString('th-TH')}</td>
+            <td style="padding: 12px; text-align: center;">
+                <button class="btn btn-sm btn-warning" onclick="editSale(${sale.id})">แก้ไข</button>
+                <button class="btn btn-sm btn-danger" onclick="deleteSale(${sale.id})">ลบ</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// อัพเดตกราฟ
+function updateChart(sales) {
+    // สรุปยอดขายรายวัน (7 วันล่าสุด)
+    const last7Days = {};
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
+        last7Days[dateStr] = 0;
+    }
+    
+    sales.forEach(sale => {
+        const saleDate = new Date(sale.sale_date).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
+        if (last7Days.hasOwnProperty(saleDate)) {
+            last7Days[saleDate] += parseFloat(sale.total_price);
+        }
+    });
+    
+    const labels = Object.keys(last7Days);
+    const data = Object.values(last7Days);
+    
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    
+    if (salesChart) {
+        salesChart.destroy();
+    }
+    
+    salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'ยอดขาย (฿)',
+                data: data,
+                borderColor: '#D4AF37',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#1B3A57' }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#1B3A57' },
+                    grid: { color: 'rgba(212, 175, 55, 0.1)' }
+                },
+                x: {
+                    ticks: { color: '#1B3A57' },
+                    grid: { color: 'rgba(212, 175, 55, 0.1)' }
+                }
+            }
+        }
+    });
+}
+
+// คำนวณราคารวมอัตโนมัติ
+function updateTotalPrice() {
+    const menuSelect = document.getElementById('sale-menu');
+    const quantityInput = document.getElementById('sale-quantity');
+    const totalInput = document.getElementById('sale-total');
+    
+    const selectedOption = menuSelect.options[menuSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.dataset.price) {
+        totalInput.value = '฿0.00';
+        return;
+    }
+    
+    const price = parseFloat(selectedOption.dataset.price);
+    const quantity = parseInt(quantityInput.value) || 0;
+    const total = price * quantity;
+    
+    totalInput.value = `฿${total.toFixed(2)}`;
+}
+
+// แสดง modal เพิ่มรายการ
+function showAddModal() {
+    currentSaleId = null;
+    document.getElementById('modal-title').textContent = 'เพิ่มรายการขาย';
+    document.getElementById('sale-form').reset();
+    document.getElementById('sale-id').value = '';
+    document.getElementById('sale-menu').innerHTML = '<option value="">เลือกเมนู</option>';
+    setDefaultDate();
+    document.getElementById('sale-modal').style.display = 'block';
+}
+
+// แสดง modal แก้ไขรายการ
+async function editSale(id) {
+    try {
+        const response = await fetch(`${API_BASE}/sales/${id}/`);
+        const sale = await response.json();
+        
+        currentSaleId = id;
+        document.getElementById('modal-title').textContent = 'แก้ไขรายการขาย';
+        document.getElementById('sale-id').value = sale.id;
+        document.getElementById('sale-branch').value = sale.branch;
+        
+        // โหลดเมนูตามสาขา แล้วเลือกเมนูที่ถูกต้อง
+        loadMenusByBranch();
+        setTimeout(() => {
+            document.getElementById('sale-menu').value = sale.menu;
+            document.getElementById('sale-quantity').value = sale.quantity;
+            updateTotalPrice();
+            
+            // ตั้งค่าวันที่ขาย
+            const saleDate = new Date(sale.sale_date).toISOString().split('T')[0];
+            document.getElementById('sale-date').value = saleDate;
+        }, 100);
+        
+        document.getElementById('sale-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading sale:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูลรายการขาย');
+    }
+}
+
+// บันทึกรายการขาย
+document.getElementById('sale-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const saleData = {
+        branch: document.getElementById('sale-branch').value,
+        menu: document.getElementById('sale-menu').value,
+        quantity: document.getElementById('sale-quantity').value,
+        sale_date: document.getElementById('sale-date').value || new Date().toISOString().split('T')[0]
+    };
+    
+    if (!saleData.branch || !saleData.menu || !saleData.quantity) {
+        alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+        return;
+    }
+    
+    try {
+        const method = currentSaleId ? 'PUT' : 'POST';
+        const url = currentSaleId ? `${API_BASE}/sales/${currentSaleId}/` : `${API_BASE}/sales/`;
+        
+        // คำนวณราคารวมจากเมนูและจำนวน
+        const menuSelect = document.getElementById('sale-menu');
+        const selectedOption = menuSelect.options[menuSelect.selectedIndex];
+        const price = parseFloat(selectedOption.dataset.price);
+        const quantity = parseInt(saleData.quantity);
+        saleData.total_price = (price * quantity).toFixed(2);
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(saleData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to save: ${errorText}`);
+        }
+        
+        alert(currentSaleId ? 'แก้ไขรายการขายเรียบร้อยแล้ว' : 'เพิ่มรายการขายเรียบร้อยแล้ว');
+        closeModal();
+        loadSales();
+    } catch (error) {
+        console.error('Error saving sale:', error);
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+    }
+});
+
+// ลบรายการขาย
+async function deleteSale(id) {
+    if (!confirm('ยืนยันการลบรายการขายนี้?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/sales/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete');
+        
+        alert('ลบรายการขายเรียบร้อยแล้ว');
+        loadSales();
+    } catch (error) {
+        console.error('Error deleting sale:', error);
+        alert('เกิดข้อผิดพลาดในการลบรายการขาย');
+    }
+}
+
+// ปิด modal
+function closeModal() {
+    document.getElementById('sale-modal').style.display = 'none';
+}
+
+// รีเซ็ตตัวกรอง
+function resetFilters() {
+    document.getElementById('filter-branch').value = '';
+    document.getElementById('filter-date-start').value = '';
+    document.getElementById('filter-date-end').value = '';
+    loadSales();
+}
+
+// ดึง CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

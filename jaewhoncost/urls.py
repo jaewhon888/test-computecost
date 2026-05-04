@@ -4,8 +4,9 @@ from .views import (
     OwnerViewSet, BranchViewSet, IngredientViewSet,
     RecipeViewSet, RecipeItemViewSet, MenuViewSet,
     SaleViewSet, SettingViewSet,
+    PriceHistoryViewSet, PurchaseViewSet, PurchaseItemViewSet,
     DashboardView, IngredientsView, RecipesView, MenusView,
-    SalesView, BranchesView, OwnersView, SettingsView,
+    PurchasesView, PriceHistoryReportView, SalesView, BranchesView, OwnersView, SettingsView,
     CostCalculationView, CostCalculatorFormView
 )
 
@@ -18,6 +19,9 @@ router.register(r'recipe-items', RecipeItemViewSet)
 router.register(r'menus', MenuViewSet)
 router.register(r'sales', SaleViewSet)
 router.register(r'settings', SettingViewSet)
+router.register(r'price-history', PriceHistoryViewSet)
+router.register(r'purchases', PurchaseViewSet)
+router.register(r'purchase-items', PurchaseItemViewSet)
 
 urlpatterns = [
     path('api/', include(router.urls)),
@@ -25,6 +29,8 @@ urlpatterns = [
     path('ingredients/', IngredientsView.as_view(), name='ingredients'),
     path('recipes/', RecipesView.as_view(), name='recipes'),
     path('menus/', MenusView.as_view(), name='menus'),
+    path('purchases/', PurchasesView.as_view(), name='purchases'),
+    path('price-history-report/', PriceHistoryReportView.as_view(), name='price_history_report'),
     path('sales/', SalesView.as_view(), name='sales'),
     path('branches/', BranchesView.as_view(), name='branches'),
     path('owners/', OwnersView.as_view(), name='owners'),

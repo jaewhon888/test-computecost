@@ -10,8 +10,7 @@ class CostCalculationForm(forms.Form):
         queryset=Recipe.objects.all().prefetch_related('items__ingredient', 'branch'),
         label='เลือกสูตรอาหาร',
         widget=forms.Select(attrs={
-            'class': 'form-control',
-            'onchange': 'calculateCost()'
+            'class': 'form-control'
         })
     )
     
@@ -25,8 +24,7 @@ class CostCalculationForm(forms.Form):
         decimal_places=2,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.1',
-            'oninput': 'calculateCost()'
+            'step': '0.1'
         }),
         help_text='ค่าเสียเปล่าในการปรุง (มาตรฐาน 5-10%)'
     )
@@ -41,8 +39,7 @@ class CostCalculationForm(forms.Form):
         decimal_places=2,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.1',
-            'oninput': 'calculateCost()'
+            'step': '0.1'
         }),
         help_text='อัตราต้นทุนอาหารที่ต้องการ (มาตรฐาน 25-35% สำหรับร้านอาหารไทย)'
     )
@@ -56,8 +53,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -69,8 +65,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -82,8 +77,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -95,8 +89,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -108,8 +101,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -121,8 +113,7 @@ class CostCalculationForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
-            'step': '0.01',
-            'oninput': 'calculateCost()'
+            'step': '0.01'
         })
     )
     
@@ -136,7 +127,6 @@ class CostCalculationForm(forms.Form):
         widget=forms.NumberInput(attrs={
             'class': 'form-control',
             'step': '0.01',
-            'oninput': 'calculateCost()',
             'placeholder': 'เว้นว่างไว้หากยังไม่ได้ตั้งราคาขาย'
         })
     )
