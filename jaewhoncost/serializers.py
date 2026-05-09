@@ -52,10 +52,11 @@ class MenuSerializer(serializers.ModelSerializer):
 class SaleSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
     menu_name = serializers.CharField(source='menu.name', read_only=True)
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
     
     class Meta:
         model = Sale
-        fields = ['id', 'branch', 'branch_name', 'menu', 'menu_name', 'quantity', 'total_price', 'sale_date']
+        fields = ['id', 'branch', 'branch_name', 'menu', 'menu_name', 'quantity', 'total_price', 'sale_date', 'payment_method', 'payment_method_display', 'note']
 
 
 class SettingSerializer(serializers.ModelSerializer):

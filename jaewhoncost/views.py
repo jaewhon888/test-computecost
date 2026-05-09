@@ -323,10 +323,25 @@ class SaleViewSet(viewsets.ModelViewSet):
     serializer_class = SaleSerializer
     
     def get_queryset(self):
+        queryset = Sale.objects.all()
         branch_id = self.request.query_params.get('branch_id')
+        date_start = self.request.query_params.get('date_start')
+        date_end = self.request.query_params.get('date_end')
+        payment_method = self.request.query_params.get('payment_method')
+        search = self.request.query_params.get('search')
+        
         if branch_id:
-            return Sale.objects.filter(branch_id=branch_id)
-        return Sale.objects.all()
+            queryset = queryset.filter(branch_id=branch_id)
+        if date_start:
+            queryset = queryset.filter(sale_date__gte=date_start)
+        if date_end:
+            queryset = queryset.filter(sale_date__lte=date_end)
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+        if search:
+            queryset = queryset.filter(menu__name__icontains=search)
+        
+        return queryset
     
     @action(detail=False, methods=['get'])
     def daily_sales(self, request):
@@ -338,6 +353,197 @@ class SaleViewSet(viewsets.ModelViewSet):
         
         sales = Sale.objects.filter(sale_date__gte=start_date).values('sale_date__date').annotate(total=Sum('total_price'))
         return Response(sales)
+    
+    @action(detail=False, methods=['get'])
+    def top_selling(self, request):
+        """รายงานเมนูขายดี — เรียงตามจำนวนที่ขายได้มากสุด"""
+        from django.db.models import Sum, Count
+        from datetime import datetime, timedelta
+        
+        days = int(request.query_params.get('days', 30))
+        branch_id = request.query_params.get('branch_id')
+        limit = int(request.query_params.get('limit', 10))
+        
+        start_date = datetime.now() - timedelta(days=days)
+        queryset = Sale.objects.filter(sale_date__gte=start_date)
+        
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+        
+        top_menus = (
+            queryset
+            .values('menu__id', 'menu__name', 'menu__price')
+            .annotate(
+                total_quantity=Sum('quantity'),
+                total_revenue=Sum('total_price'),
+                transaction_count=Count('id'),
+            )
+            .order_by('-total_quantity')[:limit]
+        )
+        
+        return Response(list(top_menus))
+    
+    @action(detail=False, methods=['get'])
+    def compare_periods(self, request):
+        """เปรียบเทียบยอดขายระหว่างสองช่วงเวลา"""
+        from django.db.models import Sum, Count
+        from datetime import datetime
+        
+        # ช่วงเวลาปัจจุบัน
+        cur_start = request.query_params.get('cur_start')
+        cur_end = request.query_params.get('cur_end')
+        # ช่วงเวลาเปรียบเทียบ
+        prev_start = request.query_params.get('prev_start')
+        prev_end = request.query_params.get('prev_end')
+        branch_id = request.query_params.get('branch_id')
+        
+        def _aggregate(start, end, branch_id):
+            qs = Sale.objects.all()
+            if start:
+                qs = qs.filter(sale_date__gte=start)
+            if end:
+                qs = qs.filter(sale_date__lte=end)
+            if branch_id:
+                qs = qs.filter(branch_id=branch_id)
+            result = qs.aggregate(
+                total_revenue=Sum('total_price'),
+                total_transactions=Count('id'),
+                total_quantity=Sum('quantity'),
+            )
+            result['total_revenue'] = float(result['total_revenue'] or 0)
+            result['total_transactions'] = result['total_transactions'] or 0
+            result['total_quantity'] = float(result['total_quantity'] or 0)
+            result['avg_transaction'] = result['total_revenue'] / result['total_transactions'] if result['total_transactions'] else 0
+            return result
+        
+        current = _aggregate(cur_start, cur_end, branch_id)
+        previous = _aggregate(prev_start, prev_end, branch_id)
+        
+        def _change(cur, prev):
+            if not prev:
+                return 100.0 if cur else 0.0
+            return round(((cur - prev) / prev) * 100, 1)
+        
+        return Response({
+            'current': current,
+            'previous': previous,
+            'changes': {
+                'revenue_change_pct': _change(current['total_revenue'], previous['total_revenue']),
+                'transactions_change_pct': _change(current['total_transactions'], previous['total_transactions']),
+                'quantity_change_pct': _change(current['total_quantity'], previous['total_quantity']),
+                'avg_transaction_change_pct': _change(current['avg_transaction'], previous['avg_transaction']),
+            }
+        })
+    
+    @action(detail=False, methods=['get'])
+    def payment_summary(self, request):
+        """สรุปยอดขายแยกตามวิธีชำระเงิน"""
+        from django.db.models import Sum, Count
+        from datetime import datetime, timedelta
+        
+        days = int(request.query_params.get('days', 30))
+        branch_id = request.query_params.get('branch_id')
+        
+        start_date = datetime.now() - timedelta(days=days)
+        queryset = Sale.objects.filter(sale_date__gte=start_date)
+        
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+        
+        summary = (
+            queryset
+            .values('payment_method')
+            .annotate(
+                total_revenue=Sum('total_price'),
+                transaction_count=Count('id'),
+            )
+            .order_by('-total_revenue')
+        )
+        
+        # เพิ่ม display name
+        payment_map = dict(Sale.PAYMENT_METHOD_CHOICES)
+        for item in summary:
+            item['payment_method_display'] = payment_map.get(item['payment_method'], item['payment_method'])
+            item['total_revenue'] = float(item['total_revenue'] or 0)
+        
+        return Response(list(summary))
+    
+    @action(detail=False, methods=['get'])
+    def by_weekday(self, request):
+        """สรุปยอดขายแยกตามวันในสัปดาห์"""
+        from django.db.models import Sum, Count
+        from datetime import datetime, timedelta
+        
+        days = int(request.query_params.get('days', 30))
+        branch_id = request.query_params.get('branch_id')
+        
+        start_date = datetime.now() - timedelta(days=days)
+        queryset = Sale.objects.filter(sale_date__gte=start_date)
+        
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+        
+        # ใช้ raw SQL เพื่อ group by day of week
+        from django.db.models.functions import ExtractWeekDay
+        from django.db.models import F
+        
+        result = (
+            queryset
+            .annotate(day_of_week=ExtractWeekDay('sale_date'))
+            .values('day_of_week')
+            .annotate(
+                total_revenue=Sum('total_price'),
+                transaction_count=Count('id'),
+            )
+            .order_by('day_of_week')
+        )
+        
+        weekday_names = {
+            1: 'อาทิตย์', 2: 'จันทร์', 3: 'อังคาร', 4: 'พุธ',
+            5: 'พฤหัส', 6: 'ศุกร์', 7: 'เสาร์'
+        }
+        
+        for item in result:
+            item['day_name'] = weekday_names.get(item['day_of_week'], 'ไม่ทราบ')
+            item['total_revenue'] = float(item['total_revenue'] or 0)
+        
+        return Response(list(result))
+    
+    @action(detail=False, methods=['get'])
+    def export_csv(self, request):
+        """Export รายการขายเป็น CSV"""
+        import csv
+        from django.http import HttpResponse
+        from datetime import datetime, timedelta
+        
+        days = int(request.query_params.get('days', 30))
+        branch_id = request.query_params.get('branch_id')
+        
+        start_date = datetime.now() - timedelta(days=days)
+        queryset = Sale.objects.filter(sale_date__gte=start_date).select_related('branch', 'menu')
+        
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+        
+        response = HttpResponse(content_type='text/csv; charset=utf-8-sig')
+        response['Content-Disposition'] = f'attachment; filename="sales_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'สาขา', 'เมนู', 'จำนวน', 'ราคารวม', 'วิธีชำระ', 'วันที่ขาย', 'หมายเหตุ'])
+        
+        for sale in queryset:
+            writer.writerow([
+                sale.id,
+                sale.branch.name,
+                sale.menu.name,
+                sale.quantity,
+                sale.total_price,
+                sale.get_payment_method_display(),
+                sale.sale_date.strftime('%d/%m/%Y %H:%M'),
+                sale.note or '',
+            ])
+        
+        return response
 
 
 class SettingViewSet(viewsets.ModelViewSet):

@@ -125,15 +125,26 @@ class Menu(models.Model):
 # ===== 7. Sale Model =====
 class Sale(models.Model):
     """การขาย"""
+    PAYMENT_METHOD_CHOICES = [
+        ('cash', 'เงินสด'),
+        ('transfer', 'เงินโอน'),
+        ('credit_card', 'บัตรเครดิต'),
+        ('promptpay', 'พร้อมเพย์'),
+        ('other', 'อื่นๆ'),
+    ]
+
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='sales')
     menu = models.ForeignKey(Menu, on_delete=models.CASCADE)
     quantity = models.IntegerField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     sale_date = models.DateTimeField(auto_now_add=True)
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash', verbose_name='วิธีชำระเงิน')
+    note = models.CharField(max_length=255, blank=True, verbose_name='หมายเหตุ')
     
     class Meta:
         verbose_name = 'การขาย'
         verbose_name_plural = 'การขาย'
+        ordering = ['-sale_date']
     
     def __str__(self):
         return f"{self.menu.name} x{self.quantity}"
