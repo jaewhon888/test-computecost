@@ -9,112 +9,139 @@
     <button class="btn btn-primary" onclick="openAddModal()">+ Add Recipe</button>
 </div>
 
-<div class="card">
-    <table id="recipes-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Branch</th>
-                <th>Description</th>
-                <th>Items</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-        </tbody>
-    </table>
-</div>
+<table id="recipes-table" class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Branch</th>
+            <th>Description</th>
+            <th>Ingredients in this Recipe</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
+    </tbody>
+</table>
 
 <!-- Add/Edit Modal -->
 <div id="recipeModal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 800px;">
         <span class="close" onclick="closeModal()">&times;</span>
         <h2>Add/Edit Recipe</h2>
         <form id="recipeForm">
             <div class="form-group">
-                <label>Branch:</label>
+                <label>Branch</label>
                 <select id="branch_id" required>
                     <option value="">Select Branch</option>
                 </select>
             </div>
             <div class="form-group">
-                <label>Name:</label>
+                <label>Name</label>
                 <input type="text" id="name" required>
             </div>
             <div class="form-group">
-                <label>Description:</label>
-                <textarea id="description" rows="4"></textarea>
+                <label>Description</label>
+                <textarea id="description" rows="3"></textarea>
             </div>
-            <button type="submit" class="btn btn-primary">Save</button>
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            
+            <h3 style="margin-top: 20px;">Ingredients</h3>
+            <button type="button" class="btn btn-secondary" onclick="addIngredientRow()">+ Add Ingredient</button>
+            
+            <table class="table" style="margin-top: 10px;">
+                <thead>
+                    <tr>
+                        <th>Ingredient</th>
+                        <th>Quantity</th>
+                        <th>Unit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="recipe-items-tbody">
+                </tbody>
+            </table>
+            
+            <button type="submit" class="btn btn-primary" style="margin-top: 20px;">Save</button>
         </form>
     </div>
 </div>
 
-<style>
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-        background-color: white;
-        margin: 5% auto;
-        padding: 30px;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    .close {
-        color: var(--navy);
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    .close:hover {
-        color: var(--gold);
-    }
-</style>
+<!-- Ingredient Select Modal -->
+<div id="ingredientSelectModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeIngredientSelectModal()">&times;</span>
+        <h2>Select Ingredient</h2>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Unit</th>
+                    <th>Price</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="ingredients-select-tbody">
+            </tbody>
+        </table>
+    </div>
+</div>
 
 <script>
     const API_BASE = window.location.origin + '/api';
     let currentRecipeId = null;
-
-    async function loadRecipes( ) {
+    let recipes = [];
+    let allIngredients = [];
+    let currentEditingRow = null;
+    
+    // CSRF Token function
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    async function loadRecipes() {
         try {
             const response = await fetch(`${API_BASE}/recipes/`);
-            const recipes = await response.json();
+            recipes = await response.json();
             const tbody = document.querySelector('#recipes-table tbody');
             tbody.innerHTML = '';
 
             recipes.forEach(recipe => {
                 const row = tbody.insertRow();
+                
+                let itemsHtml = '<span style="color: #999;">No items</span>';
+                if (recipe.items && recipe.items.length > 0) {
+                    itemsHtml = '<table style="width: 100%; font-size: 12px; border-collapse: collapse;">';
+                    recipe.items.forEach(item => {
+                        const qty = item.quantity || 0;
+                        const unit = item.ingredient_unit || '-';
+                        const name = item.ingredient_name || 'Unknown';
+                        itemsHtml += `<tr>
+                            <td style="padding: 2px 5px; border-bottom: 1px solid #eee;">${name}</td>
+                            <td style="padding: 2px 5px; text-align: right; border-bottom: 1px solid #eee;">${qty} ${unit}</td>
+                        </tr>`;
+                    });
+                    itemsHtml += '</table>';
+                }
+                
                 row.innerHTML = `
                     <td>${recipe.name}</td>
                     <td>${recipe.branch_name}</td>
                     <td>${recipe.description || '-'}</td>
-                    <td>${recipe.items.length}</td>
+                    <td style="min-width: 200px;">${itemsHtml}</td>
                     <td>
-                        <button class="btn btn-primary" onclick="editRecipe(${recipe.id})">Edit</button>
-                        <button class="btn btn-danger" onclick="deleteRecipe(${recipe.id})">Delete</button>
+                        <button class="btn btn-primary edit-btn" data-id="${recipe.id}" style="cursor:pointer;">Edit</button>
+                        <button class="btn btn-danger delete-btn" data-id="${recipe.id}" style="cursor:pointer;">Delete</button>
                     </td>
                 `;
             });
@@ -124,6 +151,15 @@
             }
         } catch (error) {
             console.error('Error loading recipes:', error);
+        }
+    }
+    
+    async function loadIngredients() {
+        try {
+            const response = await fetch(`${API_BASE}/ingredients/`);
+            allIngredients = await response.json();
+        } catch (error) {
+            console.error('Error loading ingredients:', error);
         }
     }
 
@@ -147,6 +183,7 @@
     function openAddModal() {
         currentRecipeId = null;
         document.getElementById('recipeForm').reset();
+        document.getElementById('recipe-items-tbody').innerHTML = '';
         document.getElementById('recipeModal').style.display = 'block';
     }
 
@@ -164,12 +201,94 @@
             document.getElementById('name').value = recipe.name;
             document.getElementById('description').value = recipe.description || '';
             
+            loadRecipeItems(recipe.items || []);
+            
             document.getElementById('recipeModal').style.display = 'block';
         } catch (error) {
             console.error('Error loading recipe:', error);
         }
     }
-
+    
+    function loadRecipeItems(items) {
+        const tbody = document.getElementById('recipe-items-tbody');
+        tbody.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                addIngredientRowWithData(item.ingredient_name, item.ingredient, item.quantity, item.ingredient_unit);
+            });
+        }
+    }
+    
+    function addIngredientRow() {
+        addIngredientRowWithData('', '', 0, '');
+    }
+    
+    function addIngredientRowWithData(name, ingredientId, quantity, unit) {
+        const tbody = document.getElementById('recipe-items-tbody');
+        const row = tbody.insertRow();
+        row.innerHTML = `
+            <td>
+                <input type="text" class="ingredient-name" value="${name}" readonly style="border: none; background: transparent; width: 100%;">
+                <input type="hidden" class="ingredient-id" value="${ingredientId}">
+            </td>
+            <td>
+                <input type="number" class="ingredient-qty" value="${quantity}" step="0.01" min="0" style="width: 80px; text-align: right; padding: 5px;" required>
+            </td>
+            <td>
+                <input type="text" class="ingredient-unit" value="${unit}" readonly style="border: none; background: transparent; width: 60px;">
+            </td>
+            <td style="text-align: center;">
+                <button type="button" class="btn btn-small" onclick="openIngredientSelect(this)">📋</button>
+                <button type="button" class="btn btn-small btn-danger" onclick="removeIngredientRow(this)">✕</button>
+            </td>
+        `;
+    }
+    
+    function removeIngredientRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+    }
+    
+    function openIngredientSelect(btn) {
+        currentEditingRow = btn.closest('tr');
+        loadIngredientsSelectTable();
+        document.getElementById('ingredientSelectModal').style.display = 'block';
+    }
+    
+    function closeIngredientSelectModal() {
+        document.getElementById('ingredientSelectModal').style.display = 'none';
+        currentEditingRow = null;
+    }
+    
+    function loadIngredientsSelectTable() {
+        const tbody = document.getElementById('ingredients-select-tbody');
+        tbody.innerHTML = '';
+        
+        allIngredients.forEach(ing => {
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.onmouseover = () => tr.style.background = '#f0f0f0';
+            tr.onmouseout = () => tr.style.background = '';
+            tr.onclick = () => selectIngredient(ing);
+            tr.innerHTML = `
+                <td style="padding: 8px;">${ing.name}</td>
+                <td style="padding: 8px;">${ing.unit || '-'}</td>
+                <td style="padding: 8px; text-align: right;">฿${parseFloat(ing.price || 0).toFixed(4)}</td>
+                <td style="padding: 8px;"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+    
+    function selectIngredient(ingredient) {
+        if (currentEditingRow) {
+            currentEditingRow.querySelector('.ingredient-name').value = ingredient.name;
+            currentEditingRow.querySelector('.ingredient-id').value = ingredient.id;
+            currentEditingRow.querySelector('.ingredient-unit').value = ingredient.unit || '';
+        }
+        closeIngredientSelectModal();
+    }
+    
     async function deleteRecipe(id) {
         if (confirm('Are you sure?')) {
             try {
@@ -180,14 +299,28 @@
             }
         }
     }
-
+    
     document.getElementById('recipeForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const items = [];
+        const rows = document.querySelectorAll('#recipe-items-tbody tr');
+        rows.forEach(row => {
+            const ingredientId = row.querySelector('.ingredient-id').value;
+            const qty = row.querySelector('.ingredient-qty').value;
+            if (ingredientId && qty > 0) {
+                items.push({
+                    ingredient: ingredientId,
+                    quantity: parseFloat(qty)
+                });
+            }
+        });
         
         const data = {
             branch: document.getElementById('branch_id').value,
             name: document.getElementById('name').value,
             description: document.getElementById('description').value,
+            items: items
         };
 
         try {
@@ -198,7 +331,7 @@
 
             await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
                 body: JSON.stringify(data)
             });
 
@@ -209,8 +342,24 @@
         }
     });
 
+    // Event delegation for edit/delete buttons (iOS Safari fix)
+    document.querySelector('#recipes-table tbody').addEventListener('click', function(e) {
+        const editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+            const id = editBtn.getAttribute('data-id');
+            editRecipe(parseInt(id));
+            return;
+        }
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) {
+            const id = deleteBtn.getAttribute('data-id');
+            deleteRecipe(parseInt(id));
+            return;
+        }
+    });
+
+    loadIngredients();
     loadBranches();
     loadRecipes();
 </script>
 {% endblock %}
-

@@ -276,8 +276,8 @@ function updateTable(sales) {
             <td style="padding: 12px; text-align: right;">฿${parseFloat(sale.total_price).toFixed(2)}</td>
             <td style="padding: 12px;">${new Date(sale.sale_date).toLocaleDateString('th-TH')}</td>
             <td style="padding: 12px; text-align: center;">
-                <button class="btn btn-sm btn-warning" onclick="editSale(${sale.id})">แก้ไข</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteSale(${sale.id})">ลบ</button>
+                <button class="btn btn-sm btn-warning edit-btn" data-id="${sale.id}" style="cursor:pointer;">แก้ไข</button>
+                <button class="btn btn-sm btn-danger delete-btn" data-id="${sale.id}" style="cursor:pointer;">ลบ</button>
             </td>
         `;
         tbody.appendChild(row);
@@ -508,5 +508,21 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Event delegation for edit/delete buttons (iOS Safari fix)
+document.querySelector('#sales-table-body').addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editSale(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deleteSale(parseInt(id));
+        return;
+    }
+});
 </script>
 {% endblock %}

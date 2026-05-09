@@ -58,6 +58,35 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Recipe.objects.filter(branch_id=branch_id)
         return Recipe.objects.all()
     
+    def perform_create(self, serializer):
+        # ดึง items ออกจาก request data ก่อน serializer ตรวจสอบ
+        items_data = self.request.data.pop('items', [])
+        recipe = serializer.save()
+        # สร้าง items ใหม่
+        if items_data:
+            for item_data in items_data:
+                RecipeItem.objects.create(
+                    recipe=recipe,
+                    ingredient_id=item_data.get('ingredient'),
+                    quantity=item_data.get('quantity', 0)
+                )
+    
+    def perform_update(self, serializer):
+        # ดึง items ออกจาก request data ก่อน serializer ตรวจสอบ
+        items_data = self.request.data.pop('items', None)
+        recipe = serializer.save()
+        # อัปเดต items
+        if items_data is not None:  # None หมายถึงไม่ไดส่ง items มา
+            # ลบ items เก่า
+            recipe.items.all().delete()
+            # สร้าง items ใหม่
+            for item_data in items_data:
+                RecipeItem.objects.create(
+                    recipe=recipe,
+                    ingredient_id=item_data.get('ingredient'),
+                    quantity=item_data.get('quantity', 0)
+                )
+    
     @action(detail=True, methods=['post'])
     def calculate_cost(self, request, pk=None):
         """API endpoint สำหรับคำนวณต้นทุนแบบ real-time (รองรับการคำนวณตามช่วงวันที่)"""
@@ -72,15 +101,28 @@ class RecipeViewSet(viewsets.ModelViewSet):
         calculation_date = data.get('calculation_date')
         use_historical_prices = data.get('use_historical_prices', False)
         
-        # Overhead costs
-        overhead_costs = {
-            'utilities': float(data.get('overhead_utilities', 4.80)),
-            'labor': float(data.get('overhead_labor', 16.20)),
-            'rent': float(data.get('overhead_rent', 6.00)),
-            'depreciation': float(data.get('overhead_depreciation', 1.80)),
-            'marketing': float(data.get('overhead_marketing', 1.80)),
-            'delivery': float(data.get('overhead_delivery', 17.01)),
-        }
+        # ดึง overhead costs จาก Setting model (ตามสาขาของสูตร)
+        try:
+            branch_setting = Setting.objects.get(branch=recipe.branch)
+            overhead_costs = {
+                'utilities': float(data.get('overhead_utilities', branch_setting.overhead_utilities)),
+                'labor': float(data.get('overhead_labor', branch_setting.overhead_labor)),
+                'rent': float(data.get('overhead_rent', branch_setting.overhead_rent)),
+                'depreciation': float(data.get('overhead_depreciation', branch_setting.overhead_depreciation)),
+                'marketing': float(data.get('overhead_marketing', branch_setting.overhead_marketing)),
+                'delivery': float(data.get('overhead_delivery', branch_setting.overhead_delivery)),
+            }
+        except Setting.DoesNotExist:
+            # ถ้าไม่มี Setting ใชค่า default (กรณีสร้าง Setting ไม่สำเร็จ)
+            overhead_costs = {
+                'utilities': float(data.get('overhead_utilities', 4.80)),
+                'labor': float(data.get('overhead_labor', 16.20)),
+                'rent': float(data.get('overhead_rent', 6.00)),
+                'depreciation': float(data.get('overhead_depreciation', 1.80)),
+                'marketing': float(data.get('overhead_marketing', 1.80)),
+                'delivery': float(data.get('overhead_delivery', 17.01)),
+            }
+        
         total_overhead = sum(overhead_costs.values())
         
         # คำนวณต้นทุนวัตถุดิบ
@@ -192,6 +234,88 @@ class MenuViewSet(viewsets.ModelViewSet):
         if branch_id:
             return Menu.objects.filter(branch_id=branch_id)
         return Menu.objects.all()
+    
+    @action(detail=True, methods=['post'])
+    def calculate_cost(self, request, pk=None):
+        """คำนวณต้นทุนของเมนู (ใช้ recipe ที่ผูกอยู่)"""
+        menu = self.get_object()
+        
+        if not menu.recipe:
+            return Response({'error': 'เมนูนี้ไม่ได้ผูกกับสูตรอาหาร'}, status=400)
+        
+        # เรียกใช้ calculate_cost ของ recipe viewset โดยตรง
+        recipe_viewset = RecipeViewSet()
+        recipe_viewset.request = request
+        recipe_viewset.format_kwarg = None
+        recipe_viewset.kwargs = {'pk': menu.recipe.id}
+        
+        # เพิ่ม actual_selling_price จากราคาเมนูใน request data
+        request.data['actual_selling_price'] = float(menu.price)
+        
+        response = recipe_viewset.calculate_cost(request, pk=menu.recipe.id)
+        
+        # เพิ่มข้อมูลเมนูในผลลัพธ์
+        if response.status_code == 200:
+            result = response.data
+            result['menu_name'] = menu.name
+            result['menu_price'] = float(menu.price)
+            result['menu_id'] = menu.id
+            result['branch_name'] = menu.branch.name
+            return Response(result)
+        
+        return response
+    
+    @action(detail=False, methods=['post'])
+    def calculate_all(self, request):
+        """คำนวณต้นทุนเมนูทั้งหมด"""
+        branch_id = request.query_params.get('branch_id')
+        
+        if branch_id:
+            menus = Menu.objects.filter(branch_id=branch_id).select_related('recipe', 'branch')
+        else:
+            menus = Menu.objects.all().select_related('recipe', 'branch')
+        
+        results = []
+        for menu in menus:
+            if not menu.recipe:
+                results.append({
+                    'menu_id': menu.id,
+                    'menu_name': menu.name,
+                    'branch_name': menu.branch.name,
+                    'error': 'ไม่มีสูตรอาหารผูกอยู่'
+                })
+                continue
+            
+            # เรียกใช้ calculate_cost
+            recipe_viewset = RecipeViewSet()
+            recipe_viewset.request = request
+            recipe_viewset.format_kwarg = None
+            recipe_viewset.kwargs = {'pk': menu.recipe.id}
+            
+            # ตั้งค่า actual_selling_price
+            request.data['actual_selling_price'] = float(menu.price)
+            
+            response = recipe_viewset.calculate_cost(request, pk=menu.recipe.id)
+            
+            if response.status_code == 200:
+                result = response.data
+                result['menu_id'] = menu.id
+                result['menu_name'] = menu.name
+                result['menu_price'] = float(menu.price)
+                result['branch_name'] = menu.branch.name
+                results.append(result)
+            else:
+                results.append({
+                    'menu_id': menu.id,
+                    'menu_name': menu.name,
+                    'branch_name': menu.branch.name,
+                    'error': 'เกิดข้อผิดพลาดในการคำนวณ'
+                })
+        
+        return Response({
+            'total_menus': len(results),
+            'results': results
+        })
 
 
 class SaleViewSet(viewsets.ModelViewSet):

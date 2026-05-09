@@ -164,8 +164,8 @@ async function loadMenus() {
                 <td>฿${parseFloat(menu.price).toFixed(2)}</td>
                 <td>${menu.description || '-'}</td>
                 <td>
-                    <button class="btn btn-sm btn-warning" onclick="editMenu(${menu.id})">แก้ไข</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteMenu(${menu.id})">ลบ</button>
+                    <button class="btn btn-sm btn-warning edit-btn" data-id="${menu.id}" style="cursor:pointer;">แก้ไข</button>
+                    <button class="btn btn-sm btn-danger delete-btn" data-id="${menu.id}" style="cursor:pointer;">ลบ</button>
                 </td>
             `;
             tbody.appendChild(row);
@@ -317,6 +317,22 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBranches();
     loadAllRecipes();
     loadMenus();
+});
+
+// Event delegation for edit/delete buttons (iOS Safari fix)
+document.querySelector('#menus-table tbody').addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editMenu(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deleteMenu(parseInt(id));
+        return;
+    }
 });
 </script>
 {% endblock %}

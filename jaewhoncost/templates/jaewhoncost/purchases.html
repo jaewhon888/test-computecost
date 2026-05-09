@@ -114,6 +114,75 @@
         </form>
     </div>
 </div>
+
+<!-- Modal แก้ไขใบจัดซื้อ -->
+<div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; width: 90%; max-width: 800px; margin: 50px auto; padding: 30px; border-radius: 8px; max-height: 80vh; overflow-y: auto;">
+        <h3>แก้ไขใบจัดซื้อ #<span id="edit-purchase-id"></span></h3>
+        <form id="edit-purchase-form">
+            <input type="hidden" id="edit-purchase-id-input">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                    <label>สาขา *</label>
+                    <select id="edit-purchase-branch" required style="width: 100%; padding: 8px;">
+                        <option value="">เลือกสาขา</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ผู้จำหน่าย</label>
+                    <input type="text" id="edit-purchase-supplier" placeholder="ชื่อผู้จำหน่าย" style="width: 100%; padding: 8px;">
+                </div>
+                <div class="form-group">
+                    <label>เลขที่ใบแจ้งหนี้</label>
+                    <input type="text" id="edit-purchase-invoice" placeholder="เลขที่ใบแจ้งหนี้" style="width: 100%; padding: 8px;">
+                </div>
+                <div class="form-group">
+                    <label>สถานะการชำระ</label>
+                    <select id="edit-purchase-payment-status" style="width: 100%; padding: 8px;">
+                        <option value="pending">รอชำระ</option>
+                        <option value="paid">ชำระแล้ว</option>
+                        <option value="partial">ชำระบางส่วน</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <label>หมายเหตุ</label>
+                <textarea id="edit-purchase-note" style="width: 100%; padding: 8px; min-height: 60px;"></textarea>
+            </div>
+            
+            <h4 style="margin-top: 20px;">รายการวัตถุดิบ</h4>
+            <div id="edit-purchase-items">
+                <!-- Items will be loaded here -->
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addEditItemRow()" style="margin-top: 10px;">+ เพิ่มรายการ</button>
+            
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <strong>ยอดรวม: <span id="edit-purchase-total">฿0.00</span></strong>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="updatePurchase()">บันทึกการแก้ไข</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal ดูรายละเอียดใบจัดซื้อ -->
+<div id="view-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; width: 90%; max-width: 800px; margin: 50px auto; padding: 30px; border-radius: 8px; max-height: 80vh; overflow-y: auto;">
+        <h3>รายละเอียดใบจัดซื้อ #<span id="view-purchase-id"></span></h3>
+        <div id="view-purchase-details">
+            <!-- Details will be loaded here -->
+        </div>
+        <div style="margin-top: 20px; text-align: right;">
+            <button type="button" class="btn btn-secondary" onclick="closeViewModal()">ปิด</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -122,7 +191,9 @@ const API_BASE = window.location.origin + '/api';
 
 let branches = [];
 let ingredients = [];
+let purchases = [];
 let purchaseItems = [];
+let editPurchaseItems = [];
 
 // เริ่มต้นโหลดข้อมูล
 document.addEventListener('DOMContentLoaded', function() {
@@ -148,15 +219,15 @@ async function loadBranches() {
         branches = await response.json();
         
         const branchSelect = document.getElementById('purchase-branch');
+        const editBranchSelect = document.getElementById('edit-purchase-branch');
         const filterSelect = document.getElementById('filter-branch');
         
-        branchSelect.innerHTML = '<option value="">เลือกสาขา</option>';
-        filterSelect.innerHTML = '<option value="">ทุกสาขา</option>';
+        const options = branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
         
-        branches.forEach(branch => {
-            branchSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
-            filterSelect.innerHTML += `<option value="${branch.id}">${branch.name}</option>`;
-        });
+        branchSelect.innerHTML = '<option value="">เลือกสาขา</option>' + options;
+        editBranchSelect.innerHTML = '<option value="">เลือกสาขา</option>' + options;
+        filterSelect.innerHTML = '<option value="">ทุกสาขา</option>' + options;
+        
         console.log('Branches loaded:', branches.length);
     } catch (error) {
         console.error('Error loading branches:', error);
@@ -188,7 +259,7 @@ async function loadPurchases() {
         
         console.log('Loading purchases from:', url);
         const response = await fetch(url);
-        const purchases = await response.json();
+        purchases = await response.json();
         
         const tbody = document.getElementById('purchases-table-body');
         tbody.innerHTML = '';
@@ -213,7 +284,9 @@ async function loadPurchases() {
                     <td style="padding: 12px; text-align: right;">฿${parseFloat(p.total_amount).toFixed(2)}</td>
                     <td style="padding: 12px; text-align: center;">${statusBadge}</td>
                     <td style="padding: 12px; text-align: center;">
-                        <button class="btn btn-small" onclick="viewPurchase(${p.id})">ดู</button>
+                        <button class="btn btn-small view-btn" data-id="${p.id}">ดู</button>
+                        <button class="btn btn-small edit-btn" data-id="${p.id}" style="margin-left: 5px;">แก้ไข</button>
+                        <button class="btn btn-small delete-btn" data-id="${p.id}" style="margin-left: 5px; background: #dc3545;">ลบ</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -245,21 +318,20 @@ function getStatusBadge(status) {
     return badges[status] || status;
 }
 
-// แสดง Modal เพิ่มใบจัดซื้อ
+// ===== ADD MODAL FUNCTIONS =====
+
 function showAddModal() {
     document.getElementById('add-modal').style.display = 'block';
     document.getElementById('add-purchase-form').reset();
     document.getElementById('purchase-items').innerHTML = '';
     purchaseItems = [];
-    addItemRow(); // เพิ่มแถวแรก
+    addItemRow();
 }
 
-// ปิด Modal
 function closeAddModal() {
     document.getElementById('add-modal').style.display = 'none';
 }
 
-// เพิ่มแถวรายการวัตถุดิบ
 function addItemRow() {
     const itemId = purchaseItems.length;
     const html = `
@@ -278,7 +350,6 @@ function addItemRow() {
     purchaseItems.push({ ingredient: null, quantity: 0, unit_price: 0 });
 }
 
-// อัพเดตรายการ
 function updateItem(index, field, value) {
     if (field === 'ingredient') {
         purchaseItems[index].ingredient = parseInt(value);
@@ -291,7 +362,6 @@ function updateItem(index, field, value) {
     updatePurchaseTotal();
 }
 
-// อัพเดตยอดรวมรายการ
 function updateItemTotal(index) {
     const item = purchaseItems[index];
     const total = item.quantity * item.unit_price;
@@ -299,20 +369,17 @@ function updateItemTotal(index) {
     if (elem) elem.textContent = '฿' + total.toFixed(2);
 }
 
-// อัพเดตยอดรวมใบจัดซื้อ
 function updatePurchaseTotal() {
     const total = purchaseItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     document.getElementById('purchase-total').textContent = '฿' + total.toFixed(2);
 }
 
-// ลบแถวรายการ
 function removeItemRow(index) {
     purchaseItems.splice(index, 1);
     renderPurchaseItems();
     updatePurchaseTotal();
 }
 
-// เรนเดอร์รายการใหม่
 function renderPurchaseItems() {
     const container = document.getElementById('purchase-items');
     container.innerHTML = '';
@@ -325,7 +392,7 @@ function renderPurchaseItems() {
                 </select>
                 <input type="number" step="0.0001" value="${item.quantity}" placeholder="จำนวน" onchange="updateItem(${index}, 'quantity', this.value)" style="padding: 8px;">
                 <input type="number" step="0.0001" value="${item.unit_price}" placeholder="ราคาต่อหน่วย" onchange="updateItem(${index}, 'unit_price', this.value)" style="padding: 8px;">
-                <div style="padding: 8px; font-weight: bold;" id="item-total-${index}">฿${(item.quantity * item.unit_price).toFixed(2)}</div>
+                <div style="padding: 8px; font-weight: bold;">฿${(item.quantity * item.unit_price).toFixed(2)}</div>
                 <button type="button" onclick="removeItemRow(${index})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">ลบ</button>
             </div>
         `;
@@ -333,7 +400,6 @@ function renderPurchaseItems() {
     });
 }
 
-// บันทึกใบจัดซื้อ
 async function savePurchase() {
     const branchId = document.getElementById('purchase-branch').value;
     if (!branchId) {
@@ -396,9 +462,297 @@ async function savePurchase() {
     }
 }
 
-// ดูรายละเอียดใบจัดซื้อ
-function viewPurchase(id) {
-    alert('ดูรายละเอียดใบจัดซื้อ #' + id);
+// ===== VIEW MODAL FUNCTIONS =====
+
+async function viewPurchase(id) {
+    try {
+        const response = await fetch(`${API_BASE}/purchases/${id}/`);
+        if (!response.ok) throw new Error('Failed to load purchase');
+        const purchase = await response.json();
+        
+        document.getElementById('view-purchase-id').textContent = purchase.id;
+        
+        const date = new Date(purchase.purchase_date).toLocaleDateString('th-TH');
+        const statusBadge = getStatusBadge(purchase.payment_status);
+        
+        // โหลดรายการวัตถุดิบ
+        const itemsResponse = await fetch(`${API_BASE}/purchase-items/?purchase_id=${id}`);
+        const items = await itemsResponse.json();
+        
+        let itemsHTML = '';
+        if (items.length > 0) {
+            itemsHTML = `
+                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                    <thead>
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 12px;">วัตถุดิบ</th>
+                            <th style="padding: 12px;">จำนวน</th>
+                            <th style="padding: 12px;">หน่วย</th>
+                            <th style="padding: 12px;">ราคาต่อหน่วย</th>
+                            <th style="padding: 12px; text-align: right;">รวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(item => `
+                            <tr style="border-bottom: 1px solid #ddd;">
+                                <td style="padding: 12px;">${item.ingredient_name}</td>
+                                <td style="padding: 12px;">${item.quantity}</td>
+                                <td style="padding: 12px;">${item.ingredient_unit}</td>
+                                <td style="padding: 12px;">฿${parseFloat(item.unit_price).toFixed(4)}</td>
+                                <td style="padding: 12px; text-align: right; font-weight: bold;">฿${parseFloat(item.total_price).toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                        <tr style="font-weight: bold; background: #f0f0f0;">
+                            <td colspan="4" style="padding: 12px; text-align: right;">ยอดรวม:</td>
+                            <td style="padding: 12px; text-align: right;">฿${parseFloat(purchase.total_amount).toFixed(2)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        document.getElementById('view-purchase-details').innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div><strong>สาขา:</strong> ${purchase.branch_name}</div>
+                <div><strong>วันที่:</strong> ${date}</div>
+                <div><strong>ผู้จำหน่าย:</strong> ${purchase.supplier_name || '-'}</div>
+                <div><strong>เลขที่ใบแจ้งหนี้:</strong> ${purchase.invoice_number || '-'}</div>
+                <div><strong>สถานะ:</strong> ${statusBadge}</div>
+                <div><strong>ยอดรวม:</strong> ฿${parseFloat(purchase.total_amount).toFixed(2)}</div>
+            </div>
+            ${purchase.note ? `<div style="margin-bottom: 15px;"><strong>หมายเหตุ:</strong> ${purchase.note}</div>` : ''}
+            <h4>รายการวัตถุดิบ</h4>
+            ${itemsHTML || '<p style="color: #666;">ไม่พบรายการวัตถุดิบ</p>'}
+        `;
+        
+        document.getElementById('view-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading purchase details:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+    }
 }
+
+function closeViewModal() {
+    document.getElementById('view-modal').style.display = 'none';
+}
+
+// ===== EDIT MODAL FUNCTIONS =====
+
+async function editPurchase(id) {
+    try {
+        const response = await fetch(`${API_BASE}/purchases/${id}/`);
+        if (!response.ok) throw new Error('Failed to load purchase');
+        const purchase = await response.json();
+        
+        document.getElementById('edit-purchase-id').textContent = purchase.id;
+        document.getElementById('edit-purchase-id-input').value = purchase.id;
+        document.getElementById('edit-purchase-branch').value = purchase.branch;
+        document.getElementById('edit-purchase-supplier').value = purchase.supplier_name || '';
+        document.getElementById('edit-purchase-invoice').value = purchase.invoice_number || '';
+        document.getElementById('edit-purchase-payment-status').value = purchase.payment_status;
+        document.getElementById('edit-purchase-note').value = purchase.note || '';
+        
+        // โหลดรายการวัตถุดิบ
+        const itemsResponse = await fetch(`${API_BASE}/purchase-items/?purchase_id=${id}`);
+        const items = await itemsResponse.json();
+        
+        editPurchaseItems = items.map(item => ({
+            id: item.id,
+            ingredient: item.ingredient,
+            ingredient_name: item.ingredient_name,
+            ingredient_unit: item.ingredient_unit,
+            quantity: parseFloat(item.quantity),
+            unit_price: parseFloat(item.unit_price)
+        }));
+        
+        renderEditPurchaseItems();
+        updateEditPurchaseTotal();
+        
+        document.getElementById('edit-modal').style.display = 'block';
+    } catch (error) {
+        console.error('Error loading purchase for edit:', error);
+        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+}
+
+function addEditItemRow() {
+    editPurchaseItems.push({ ingredient: null, quantity: 0, unit_price: 0 });
+    renderEditPurchaseItems();
+}
+
+function renderEditPurchaseItems() {
+    const container = document.getElementById('edit-purchase-items');
+    container.innerHTML = '';
+    
+    editPurchaseItems.forEach((item, index) => {
+        const html = `
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; align-items: center;">
+                <select onchange="updateEditItem(${index}, 'ingredient', this.value)" style="padding: 8px;">
+                    <option value="">เลือกวัตถุดิบ</option>
+                    ${ingredients.map(ing => `<option value="${ing.id}" ${item.ingredient === ing.id ? 'selected' : ''}>${ing.name} (${ing.unit})</option>`).join('')}
+                </select>
+                <input type="number" step="0.0001" value="${item.quantity}" placeholder="จำนวน" onchange="updateEditItem(${index}, 'quantity', this.value)" style="padding: 8px;">
+                <input type="number" step="0.0001" value="${item.unit_price}" placeholder="ราคาต่อหน่วย" onchange="updateEditItem(${index}, 'unit_price', this.value)" style="padding: 8px;">
+                <div style="padding: 8px; font-weight: bold;">฿${(item.quantity * item.unit_price).toFixed(2)}</div>
+                <button type="button" onclick="removeEditItemRow(${index})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">ลบ</button>
+            </div>
+        `;
+        container.innerHTML += html;
+    });
+}
+
+function updateEditItem(index, field, value) {
+    if (field === 'ingredient') {
+        editPurchaseItems[index].ingredient = parseInt(value);
+    } else if (field === 'quantity') {
+        editPurchaseItems[index].quantity = parseFloat(value) || 0;
+    } else if (field === 'unit_price') {
+        editPurchaseItems[index].unit_price = parseFloat(value) || 0;
+    }
+    renderEditPurchaseItems();
+    updateEditPurchaseTotal();
+}
+
+function updateEditPurchaseTotal() {
+    const total = editPurchaseItems.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+    document.getElementById('edit-purchase-total').textContent = '฿' + total.toFixed(2);
+}
+
+function removeEditItemRow(index) {
+    editPurchaseItems.splice(index, 1);
+    renderEditPurchaseItems();
+    updateEditPurchaseTotal();
+}
+
+async function updatePurchase() {
+    const purchaseId = document.getElementById('edit-purchase-id-input').value;
+    const branchId = document.getElementById('edit-purchase-branch').value;
+    
+    if (!branchId) {
+        alert('กรุณาเลือกสาขา');
+        return;
+    }
+    
+    const validItems = editPurchaseItems.filter(item => item.ingredient && item.quantity > 0);
+    if (validItems.length === 0) {
+        alert('กรุณาเพิ่มรายการวัตถุดิบอย่างน้อย 1 รายการ');
+        return;
+    }
+    
+    const purchaseData = {
+        branch: parseInt(branchId),
+        supplier_name: document.getElementById('edit-purchase-supplier').value,
+        invoice_number: document.getElementById('edit-purchase-invoice').value,
+        payment_status: document.getElementById('edit-purchase-payment-status').value,
+        note: document.getElementById('edit-purchase-note').value
+    };
+    
+    try {
+        // อัพเดตใบจัดซื้อ
+        console.log('Updating purchase:', purchaseId, purchaseData);
+        const response = await fetch(`${API_BASE}/purchases/${purchaseId}/`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(purchaseData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to update purchase: ${errorText}`);
+        }
+        
+        // ลบรายการเดิมทั้งหมด (วิธีง่ายๆ)
+        const oldItemsResponse = await fetch(`${API_BASE}/purchase-items/?purchase_id=${purchaseId}`);
+        const oldItems = await oldItemsResponse.json();
+        for (const oldItem of oldItems) {
+            await fetch(`${API_BASE}/purchase-items/${oldItem.id}/`, {
+                method: 'DELETE'
+            });
+        }
+        
+        // เพิ่มรายการใหม่
+        for (const item of validItems) {
+            const itemData = {
+                purchase: parseInt(purchaseId),
+                ingredient: item.ingredient,
+                quantity: item.quantity,
+                unit_price: item.unit_price
+            };
+            await fetch(`${API_BASE}/purchase-items/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(itemData)
+            });
+        }
+        
+        alert('อัพเดตใบจัดซื้อเรียบร้อยแล้ว');
+        closeEditModal();
+        loadPurchases();
+    } catch (error) {
+        console.error('Error updating purchase:', error);
+        alert('เกิดข้อผิดพลาด: ' + error.message);
+    }
+}
+
+// ===== DELETE FUNCTION =====
+
+async function deletePurchase(id) {
+    if (!confirm('คุณแน่ใจหรือไม่ที่จะลบใบจัดซื้อ #' + id + '?\nการกระทำนี้ไม่สามารถย้อนกลับได้')) {
+        return;
+    }
+    
+    try {
+        // ลบรายการวัตถุดิบก่อน
+        const itemsResponse = await fetch(`${API_BASE}/purchase-items/?purchase_id=${id}`);
+        const items = await itemsResponse.json();
+        
+        for (const item of items) {
+            await fetch(`${API_BASE}/purchase-items/${item.id}/`, {
+                method: 'DELETE'
+            });
+        }
+        
+        // ลบใบจัดซื้อ
+        const response = await fetch(`${API_BASE}/purchases/${id}/`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to delete purchase');
+        }
+        
+        alert('ลบใบจัดซื้อเรียบร้อยแล้ว');
+        loadPurchases();
+    } catch (error) {
+        console.error('Error deleting purchase:', error);
+        alert('เกิดข้อผิดพลาดในการลบ: ' + error.message);
+    }
+}
+
+// Event delegation for view/edit/delete buttons (iOS Safari fix)
+document.querySelector('#purchases-table-body').addEventListener('click', function(e) {
+    const viewBtn = e.target.closest('.view-btn');
+    if (viewBtn) {
+        const id = viewBtn.getAttribute('data-id');
+        viewPurchase(parseInt(id));
+        return;
+    }
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editPurchase(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deletePurchase(parseInt(id));
+        return;
+    }
+});
 </script>
 {% endblock %}

@@ -17,33 +17,26 @@
             <p id="totalSettings" class="summary-number">0</p>
         </div>
         <div class="summary-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-            <h4>Categories</h4>
-            <p id="totalCategories" class="summary-number">0</p>
+            <h4>Branches Configured</h4>
+            <p id="totalBranches" class="summary-number">0</p>
         </div>
-    </div>
-    
-    <!-- Filters -->
-    <div class="filters" style="margin-bottom: 20px; display: flex; gap: 10px;">
-        <input type="text" id="searchSetting" placeholder="Search settings..." class="form-control" style="width: 300px;">
-        <select id="categoryFilter" class="form-control" style="width: 200px;">
-            <option value="">All Categories</option>
-        </select>
     </div>
     
     <!-- Settings Table -->
     <table class="data-table" id="settings-table">
         <thead>
             <tr>
-                <th>Key</th>
-                <th>Value</th>
-                <th>Description</th>
-                <th>Category</th>
+                <th>Branch</th>
+                <th>Business Name</th>
+                <th>Tax Rate (%)</th>
+                <th>Currency</th>
+                <th>Total Overhead</th>
                 <th>Updated</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
         </tbody>
     </table>
 </div>
@@ -57,23 +50,58 @@
             <input type="hidden" id="settingId">
             
             <div class="form-group">
-                <label for="settingKey">Key *</label>
-                <input type="text" id="settingKey" required>
+                <label for="settingBranch">Branch *</label>
+                <select id="settingBranch" required style="width: 100%; padding: 8px;">
+                    <option value="">Select Branch...</option>
+                </select>
             </div>
             
             <div class="form-group">
-                <label for="settingValue">Value *</label>
-                <textarea id="settingValue" rows="3" required></textarea>
+                <label for="businessName">Business Name</label>
+                <input type="text" id="businessName" placeholder="e.g., ร้าน แจ่วฮ้อน">
             </div>
             
             <div class="form-group">
-                <label for="settingDescription">Description</label>
-                <textarea id="settingDescription" rows="2"></textarea>
+                <label for="taxRate">Tax Rate (%)</label>
+                <input type="number" id="taxRate" step="0.01" min="0" max="100" value="0">
             </div>
             
             <div class="form-group">
-                <label for="settingCategory">Category</label>
-                <input type="text" id="settingCategory" placeholder="e.g., system, email, payment">
+                <label for="currency">Currency</label>
+                <input type="text" id="currency" value="THB" maxlength="10">
+            </div>
+            
+            <hr style="margin: 20px 0;">
+            <h3>Overhead Costs</h3>
+            
+            <div class="form-group">
+                <label for="overheadUtilities">Utilities (ค่าสาธารณูปโภค)</label>
+                <input type="number" id="overheadUtilities" step="0.01" min="0" value="4.80">
+            </div>
+            
+            <div class="form-group">
+                <label for="overheadLabor">Labor (ค่าแรงงาน)</label>
+                <input type="number" id="overheadLabor" step="0.01" min="0" value="16.20">
+            </div>
+            
+            <div class="form-group">
+                <label for="overheadRent">Rent (ค่าเช่า)</label>
+                <input type="number" id="overheadRent" step="0.01" min="0" value="6.00">
+            </div>
+            
+            <div class="form-group">
+                <label for="overheadDepreciation">Depreciation (ค่าเสื่อมราคา)</label>
+                <input type="number" id="overheadDepreciation" step="0.01" min="0" value="1.80">
+            </div>
+            
+            <div class="form-group">
+                <label for="overheadMarketing">Marketing (ค่าการตลาด)</label>
+                <input type="number" id="overheadMarketing" step="0.01" min="0" value="1.80">
+            </div>
+            
+            <div class="form-group">
+                <label for="overheadDelivery">Delivery (ค่าจัดส่ง)</label>
+                <input type="number" id="overheadDelivery" step="0.01" min="0" value="17.01">
             </div>
             
             <div class="form-actions">
@@ -89,14 +117,20 @@
 <script>
 const API_BASE = window.location.origin + '/api';
 let settings = [];
-let categories = new Set();
+let branches = [];
 
 async function loadSettings() {
     try {
-        const response = await fetch(`${API_BASE}/settings/`);
-        settings = await response.json();
+        const [settingsRes, branchesRes] = await Promise.all([
+            fetch(`${API_BASE}/settings/`),
+            fetch(`${API_BASE}/branches/`)
+        ]);
+        
+        settings = await settingsRes.json();
+        branches = await branchesRes.json();
+        
         updateSummary();
-        updateCategoryFilter();
+        populateBranchDropdown();
         renderSettings(settings);
     } catch (error) {
         console.error('Error loading settings:', error);
@@ -105,62 +139,56 @@ async function loadSettings() {
 
 function updateSummary() {
     document.getElementById('totalSettings').textContent = settings.length;
-    
-    categories.clear();
-    settings.forEach(s => {
-        if (s.category) categories.add(s.category);
-    });
-    document.getElementById('totalCategories').textContent = categories.size;
+    document.getElementById('totalBranches').textContent = settings.length;
 }
 
-function updateCategoryFilter() {
-    const select = document.getElementById('categoryFilter');
-    const currentValue = select.value;
-    select.innerHTML = '<option value="">All Categories</option>';
+function populateBranchDropdown() {
+    const select = document.getElementById('settingBranch');
+    select.innerHTML = '<option value="">Select Branch...</option>';
     
-    categories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat;
-        option.textContent = cat;
-        select.appendChild(option);
+    branches.forEach(branch => {
+        // Check if this branch already has settings
+        const hasSetting = settings.some(s => s.branch === branch.id);
+        if (!hasSetting) {
+            const option = document.createElement('option');
+            option.value = branch.id;
+            option.textContent = branch.name;
+            select.appendChild(option);
+        }
     });
-    
-    select.value = currentValue;
 }
 
 function renderSettings(data) {
     const tbody = document.querySelector('#settings-table tbody');
     tbody.innerHTML = '';
     
-    const search = document.getElementById('searchSetting').value.toLowerCase();
-    const category = document.getElementById('categoryFilter').value;
-    
-    let filtered = data.filter(s => 
-        s.key.toLowerCase().includes(search) ||
-        (s.description && s.description.toLowerCase().includes(search))
-    );
-    
-    if (category) {
-        filtered = filtered.filter(s => s.category === category);
-    }
-    
-    if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No settings found</td></tr>';
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No settings found. Click "+ Add Setting" to create one.</td></tr>';
         return;
     }
     
-    filtered.forEach(setting => {
+    data.forEach(setting => {
         const date = new Date(setting.updated_at || setting.created_at).toLocaleDateString('th-TH');
+        const totalOverhead = (
+            parseFloat(setting.overhead_utilities || 0) +
+            parseFloat(setting.overhead_labor || 0) +
+            parseFloat(setting.overhead_rent || 0) +
+            parseFloat(setting.overhead_depreciation || 0) +
+            parseFloat(setting.overhead_marketing || 0) +
+            parseFloat(setting.overhead_delivery || 0)
+        ).toFixed(2);
+        
         const row = tbody.insertRow();
         row.innerHTML = `
-            <td><strong>${setting.key}</strong></td>
-            <td><code>${setting.value}</code></td>
-            <td>${setting.description || '-'}</td>
-            <td><span class="badge">${setting.category || 'uncategorized'}</span></td>
+            <td><strong>${setting.branch_name || 'N/A'}</strong></td>
+            <td>${setting.business_name || '-'}</td>
+            <td>${setting.tax_rate || 0}%</td>
+            <td>${setting.currency || 'THB'}</td>
+            <td><strong>฿${totalOverhead}</strong></td>
             <td>${date}</td>
             <td>
-                <button class="btn btn-sm btn-edit" onclick="editSetting(${setting.id})">Edit</button>
-                <button class="btn btn-sm btn-delete" onclick="deleteSetting(${setting.id})">Delete</button>
+                <button class="btn btn-sm btn-edit edit-btn" data-id="${setting.id}" style="cursor:pointer;">Edit</button>
+                <button class="btn btn-sm btn-delete delete-btn" data-id="${setting.id}" style="cursor:pointer;">Delete</button>
             </td>
         `;
     });
@@ -170,18 +198,40 @@ function openSettingModal(settingId = null) {
     const modal = document.getElementById('settingModal');
     modal.style.display = 'block';
     
+    // Reset form
+    document.getElementById('settingForm').reset();
+    document.getElementById('settingId').value = '';
+    document.getElementById('settingBranch').disabled = false;
+    
+    // Set default values for overhead
+    document.getElementById('overheadUtilities').value = 4.80;
+    document.getElementById('overheadLabor').value = 16.20;
+    document.getElementById('overheadRent').value = 6.00;
+    document.getElementById('overheadDepreciation').value = 1.80;
+    document.getElementById('overheadMarketing').value = 1.80;
+    document.getElementById('overheadDelivery').value = 17.01;
+    
     if (settingId) {
         document.getElementById('settingModalTitle').textContent = 'Edit Setting';
         const setting = settings.find(s => s.id === settingId);
+        
         document.getElementById('settingId').value = setting.id;
-        document.getElementById('settingKey').value = setting.key;
-        document.getElementById('settingValue').value = setting.value;
-        document.getElementById('settingDescription').value = setting.description || '';
-        document.getElementById('settingCategory').value = setting.category || '';
+        document.getElementById('settingBranch').value = setting.branch;
+        document.getElementById('settingBranch').disabled = true; // Don't allow branch change
+        document.getElementById('businessName').value = setting.business_name || '';
+        document.getElementById('taxRate').value = setting.tax_rate || 0;
+        document.getElementById('currency').value = setting.currency || 'THB';
+        
+        // Overhead fields
+        document.getElementById('overheadUtilities').value = setting.overhead_utilities || 4.80;
+        document.getElementById('overheadLabor').value = setting.overhead_labor || 16.20;
+        document.getElementById('overheadRent').value = setting.overhead_rent || 6.00;
+        document.getElementById('overheadDepreciation').value = setting.overhead_depreciation || 1.80;
+        document.getElementById('overheadMarketing').value = setting.overhead_marketing || 1.80;
+        document.getElementById('overheadDelivery').value = setting.overhead_delivery || 17.01;
     } else {
         document.getElementById('settingModalTitle').textContent = 'Add Setting';
-        document.getElementById('settingForm').reset();
-        document.getElementById('settingId').value = '';
+        populateBranchDropdown();
     }
 }
 
@@ -195,10 +245,16 @@ document.getElementById('settingForm').addEventListener('submit', async (e) => {
     
     const settingId = document.getElementById('settingId').value;
     const data = {
-        key: document.getElementById('settingKey').value,
-        value: document.getElementById('settingValue').value,
-        description: document.getElementById('settingDescription').value,
-        category: document.getElementById('settingCategory').value
+        branch: parseInt(document.getElementById('settingBranch').value),
+        business_name: document.getElementById('businessName').value,
+        tax_rate: parseFloat(document.getElementById('taxRate').value) || 0,
+        currency: document.getElementById('currency').value || 'THB',
+        overhead_utilities: parseFloat(document.getElementById('overheadUtilities').value) || 0,
+        overhead_labor: parseFloat(document.getElementById('overheadLabor').value) || 0,
+        overhead_rent: parseFloat(document.getElementById('overheadRent').value) || 0,
+        overhead_depreciation: parseFloat(document.getElementById('overheadDepreciation').value) || 0,
+        overhead_marketing: parseFloat(document.getElementById('overheadMarketing').value) || 0,
+        overhead_delivery: parseFloat(document.getElementById('overheadDelivery').value) || 0,
     };
     
     const method = settingId ? 'PUT' : 'POST';
@@ -218,7 +274,8 @@ document.getElementById('settingForm').addEventListener('submit', async (e) => {
             closeSettingModal();
             loadSettings();
         } else {
-            alert('Error saving setting');
+            const error = await response.json();
+            alert('Error saving setting: ' + JSON.stringify(error));
         }
     } catch (error) {
         console.error('Error:', error);
@@ -227,7 +284,7 @@ document.getElementById('settingForm').addEventListener('submit', async (e) => {
 });
 
 async function deleteSetting(settingId) {
-    if (!confirm('Delete this setting?')) return;
+    if (!confirm('Delete this setting? This action cannot be undone.')) return;
     
     try {
         const response = await fetch(`${API_BASE}/settings/${settingId}/`, {
@@ -252,15 +309,6 @@ function editSetting(settingId) {
     openSettingModal(settingId);
 }
 
-// Search and filter functionality
-document.getElementById('searchSetting').addEventListener('input', () => {
-    renderSettings(settings);
-});
-
-document.getElementById('categoryFilter').addEventListener('change', () => {
-    renderSettings(settings);
-});
-
 // Get CSRF token
 function getCookie(name) {
     let cookieValue = null;
@@ -276,6 +324,22 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Event delegation for edit/delete buttons (iOS Safari fix)
+document.querySelector('#settings-table tbody').addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editSetting(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deleteSetting(parseInt(id));
+        return;
+    }
+});
 
 // Initial load
 loadSettings();

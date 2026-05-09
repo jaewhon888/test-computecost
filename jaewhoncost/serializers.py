@@ -63,7 +63,10 @@ class SettingSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Setting
-        fields = ['id', 'branch', 'branch_name', 'business_name', 'tax_rate', 'currency', 'created_at', 'updated_at']
+        fields = ['id', 'branch', 'branch_name', 'business_name', 'tax_rate', 'currency',
+                  'overhead_utilities', 'overhead_labor', 'overhead_rent', 
+                  'overhead_depreciation', 'overhead_marketing', 'overhead_delivery',
+                  'created_at', 'updated_at']
 
 
 class PriceHistorySerializer(serializers.ModelSerializer):

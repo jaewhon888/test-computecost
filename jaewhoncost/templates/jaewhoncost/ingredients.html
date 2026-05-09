@@ -62,7 +62,7 @@
                 <label>Stock:</label>
                 <input type="number" id="stock" required>
             </div>
-            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" class="btn btn-primary" onclick="saveIngredient()">Save</button>
             <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         </form>
     </div>
@@ -113,7 +113,23 @@
 <script>
     const API_BASE = window.location.origin + '/api';
     let currentIngredientId = null;
-
+    
+    // CSRF Token function
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
     // ฟังก์ชันโหลดวัตถุดิบ - เขียนแบบง่ายๆ
     async function loadIngredients() {
         try {
@@ -165,15 +181,17 @@
                 
                 const td6 = document.createElement('td');
                 const editBtn = document.createElement('button');
-                editBtn.className = 'btn btn-primary';
+                editBtn.className = 'btn btn-primary edit-btn';
                 editBtn.textContent = 'Edit';
-                editBtn.onclick = function() { editIngredient(ing.id); };
+                editBtn.setAttribute('data-id', ing.id);
+                editBtn.style.cursor = 'pointer';
                 td6.appendChild(editBtn);
                 
                 const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn btn-danger';
+                deleteBtn.className = 'btn btn-danger delete-btn';
                 deleteBtn.textContent = 'Delete';
-                deleteBtn.onclick = function() { deleteIngredient(ing.id); };
+                deleteBtn.setAttribute('data-id', ing.id);
+                deleteBtn.style.cursor = 'pointer';
                 td6.appendChild(deleteBtn);
                 
                 row.appendChild(td6);
@@ -223,7 +241,11 @@
     
     async function editIngredient(id) {
         try {
+            console.log('Editing ingredient ID:', id);
             const response = await fetch(API_BASE + '/ingredients/' + id + '/');
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
+            }
             const ingredient = await response.json();
             currentIngredientId = id;
             document.getElementById('branch_id').value = ingredient.branch;
@@ -232,19 +254,83 @@
             document.getElementById('unit').value = ingredient.unit;
             document.getElementById('stock').value = ingredient.stock;
             document.getElementById('ingredientModal').style.display = 'block';
+            console.log('Edit modal opened for ingredient:', ingredient.name);
         } catch (error) {
             console.error('Error loading ingredient:', error);
+            alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
+        }
+    }
+    
+    // ฟังก์ชันบันทึก (เพิ่ม/แก้ไข)
+    async function saveIngredient() {
+        const branchId = document.getElementById('branch_id').value;
+        const name = document.getElementById('name').value;
+        const price = document.getElementById('price').value;
+        const unit = document.getElementById('unit').value;
+        const stock = document.getElementById('stock').value;
+        
+        if (!branchId || !name || !price) {
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน');
+            return;
+        }
+        
+        const data = {
+            branch: parseInt(branchId),
+            name: name,
+            price: parseFloat(price),
+            unit: unit,
+            stock: parseInt(stock) || 0
+        };
+        
+        try {
+            const url = currentIngredientId ? 
+                API_BASE + '/ingredients/' + currentIngredientId + '/' : 
+                API_BASE + '/ingredients/';
+            const method = currentIngredientId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(JSON.stringify(errorData) || 'HTTP error! status: ' + response.status);
+            }
+            
+            closeModal();
+            loadIngredients();
+            console.log('Ingredient saved successfully');
+        } catch (error) {
+            console.error('Error saving ingredient:', error);
+            alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
         }
     }
     
     async function deleteIngredient(id) {
-        if (confirm('Are you sure?')) {
-            try {
-                await fetch(API_BASE + '/ingredients/' + id + '/', { method: 'DELETE' });
-                loadIngredients();
-            } catch (error) {
-                console.error('Error deleting ingredient:', error);
+        if (!confirm('Are you sure?')) return;
+        
+        try {
+            const response = await fetch(API_BASE + '/ingredients/' + id + '/', {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('HTTP error! status: ' + response.status);
             }
+            
+            loadIngredients();
+            console.log('Ingredient deleted successfully');
+        } catch (error) {
+            console.error('Error deleting ingredient:', error);
+            alert('เกิดข้อผิดพลาดในการลบ: ' + error.message);
         }
     }
     
@@ -252,6 +338,22 @@
     console.log('Script loaded, calling functions...');
     loadBranches();
     loadIngredients();
+
+    // Event delegation for edit/delete buttons (iOS Safari fix)
+    document.querySelector('#ingredients-table tbody').addEventListener('click', function(e) {
+        const editBtn = e.target.closest('.edit-btn');
+        if (editBtn) {
+            const id = editBtn.getAttribute('data-id');
+            editIngredient(parseInt(id));
+            return;
+        }
+        const deleteBtn = e.target.closest('.delete-btn');
+        if (deleteBtn) {
+            const id = deleteBtn.getAttribute('data-id');
+            deleteIngredient(parseInt(id));
+            return;
+        }
+    });
 </script>
 {% endblock %}
 

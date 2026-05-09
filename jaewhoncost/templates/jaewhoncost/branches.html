@@ -132,8 +132,8 @@ function renderBranches(data) {
             <td>${branch.phone || '-'}</td>
             <td>${date}</td>
             <td>
-                <button class="btn btn-sm btn-edit" onclick="editBranch(${branch.id})">Edit</button>
-                <button class="btn btn-sm btn-delete" onclick="deleteBranch(${branch.id})">Delete</button>
+                <button class="btn btn-sm btn-edit edit-btn" data-id="${branch.id}" style="cursor:pointer;">Edit</button>
+                <button class="btn btn-sm btn-delete delete-btn" data-id="${branch.id}" style="cursor:pointer;">Delete</button>
             </td>
         `;
     });
@@ -245,6 +245,22 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Event delegation for edit/delete buttons (iOS Safari fix)
+document.querySelector('#branches-table tbody').addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editBranch(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deleteBranch(parseInt(id));
+        return;
+    }
+});
 
 // Initial load
 loadOwners();

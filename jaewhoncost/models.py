@@ -146,6 +146,15 @@ class Setting(models.Model):
     business_name = models.CharField(max_length=100)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     currency = models.CharField(max_length=10, default='THB')
+    
+    # Overhead costs
+    overhead_utilities = models.DecimalField(max_digits=10, decimal_places=2, default=4.80, verbose_name='ค่าสาธารณูปโภค')
+    overhead_labor = models.DecimalField(max_digits=10, decimal_places=2, default=16.20, verbose_name='ค่าแรงงาน')
+    overhead_rent = models.DecimalField(max_digits=10, decimal_places=2, default=6.00, verbose_name='ค่าเช่า')
+    overhead_depreciation = models.DecimalField(max_digits=10, decimal_places=2, default=1.80, verbose_name='ค่าเสื่อมราคา')
+    overhead_marketing = models.DecimalField(max_digits=10, decimal_places=2, default=1.80, verbose_name='ค่าการตลาด')
+    overhead_delivery = models.DecimalField(max_digits=10, decimal_places=2, default=17.01, verbose_name='ค่าจัดส่ง')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -155,6 +164,11 @@ class Setting(models.Model):
     
     def __str__(self):
         return f"Setting - {self.branch.name}"
+    
+    def get_total_overhead(self):
+        """คำนวณรวม overhead ทั้งหมด"""
+        return (self.overhead_utilities + self.overhead_labor + self.overhead_rent + 
+                self.overhead_depreciation + self.overhead_marketing + self.overhead_delivery)
 
 
 # ===== 9. PriceHistory Model =====

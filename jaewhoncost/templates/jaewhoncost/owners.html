@@ -106,8 +106,8 @@ function renderOwners(data) {
             <td>${branchCount} branch(es)</td>
             <td>${date}</td>
             <td>
-                <button class="btn btn-sm btn-edit" onclick="editOwner(${owner.id})">Edit</button>
-                <button class="btn btn-sm btn-delete" onclick="deleteOwner(${owner.id})">Delete</button>
+                <button class="btn btn-sm btn-edit edit-btn" data-id="${owner.id}" style="cursor:pointer;">Edit</button>
+                <button class="btn btn-sm btn-delete delete-btn" data-id="${owner.id}" style="cursor:pointer;">Delete</button>
             </td>
         `;
     });
@@ -217,6 +217,22 @@ function getCookie(name) {
     }
     return cookieValue;
 }
+
+// Event delegation for edit/delete buttons (iOS Safari fix)
+document.querySelector('#owners-table tbody').addEventListener('click', function(e) {
+    const editBtn = e.target.closest('.edit-btn');
+    if (editBtn) {
+        const id = editBtn.getAttribute('data-id');
+        editOwner(parseInt(id));
+        return;
+    }
+    const deleteBtn = e.target.closest('.delete-btn');
+    if (deleteBtn) {
+        const id = deleteBtn.getAttribute('data-id');
+        deleteOwner(parseInt(id));
+        return;
+    }
+});
 
 // Initial load
 loadOwners();
