@@ -37,5 +37,6 @@ urlpatterns = [
     path('settings/', SettingsView.as_view(), name='settings'),
     path('cost-calculation/', CostCalculationView.as_view(), name='cost_calculation'),
     path('cost-calculator/', CostCalculatorFormView.as_view(), name='cost_calculator'),
+    path('profit-report/', SaleViewSet.as_view({'get': 'profit_report'}), name='profit_report'),
 ]
 

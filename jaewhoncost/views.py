@@ -546,6 +546,164 @@ class SaleViewSet(viewsets.ModelViewSet):
         return response
 
 
+
+    @action(detail=False, methods=['get'])
+    def profit_report(self, request):
+        """รายงานกำไรขั้นต้น - เปรียบเทียบต้นทุนกับราคาขายจริง"""
+        from django.db.models import Sum, Count
+        from datetime import datetime, timedelta
+        
+        # Get query parameters
+        days = int(request.query_params.get('days', 30))
+        branch_id = request.query_params.get('branch_id')
+        date_start = request.query_params.get('date_start')
+        date_end = request.query_params.get('date_end')
+        
+        # Build queryset for sales
+        queryset = Sale.objects.all().select_related('menu__recipe__branch', 'menu')
+        
+        if date_start:
+            queryset = queryset.filter(sale_date__gte=date_start)
+        if date_end:
+            queryset = queryset.filter(sale_date__lte=date_end)
+        elif days:
+            start_date = datetime.now() - timedelta(days=days)
+            queryset = queryset.filter(sale_date__gte=start_date)
+            
+        if branch_id:
+            queryset = queryset.filter(branch_id=branch_id)
+        
+        # Group by menu for detailed report
+        menu_stats = queryset.values(
+            'menu__id', 
+            'menu__name', 
+            'menu__price',
+            'menu__recipe__id',
+            'menu__recipe__name',
+            'menu__recipe__branch__name',
+            'menu__recipe__branch__id'
+        ).annotate(
+            total_quantity=Sum('quantity'),
+            total_revenue=Sum('total_price'),
+            transaction_count=Count('id')
+        ).order_by('-total_revenue')
+        
+        # Process each menu to calculate profit
+        results = []
+        for stat in menu_stats:
+            menu_id = stat['menu__id']
+            if not menu_id:
+                continue
+                
+            try:
+                from .models import Menu
+                menu = Menu.objects.get(id=menu_id)
+                
+                # Calculate cost for this menu using existing endpoint logic
+                # We'll reuse the menu's calculate_cost method
+                from .views import MenuViewSet
+                menu_viewset = MenuViewSet()
+                menu_viewset.request = request
+                
+                # Get sales data for this specific menu to calculate totals
+                menu_sales = queryset.filter(menu_id=menu_id)
+                total_quantity = menu_sales.aggregate(Sum('quantity'))['quantity__sum'] or 0
+                total_revenue = menu_sales.aggregate(Sum('total_price'))['total_price__sum'] or 0
+                transaction_count = menu_sales.count()
+                
+                if total_quantity == 0:
+                    continue
+                    
+                # Calculate cost per unit using the menu's calculate_cost
+                # We need to create a mock request with the menu's data
+                mock_request = type('obj', (object,), {
+                    'method': 'POST',
+                    'data': {},
+                    'query_params': request.query_params
+                })()
+                
+                # Set up the viewset for detail calculation
+                detail_viewset = MenuViewSet()
+                detail_viewset.request = mock_request
+                detail_viewset.kwargs = {'pk': menu_id}
+                
+                # Try to get the cost calculation
+                try:
+                    cost_response = detail_viewset.calculate_cost(mock_request, pk=menu_id)
+                    if cost_response.status_code == 200:
+                        cost_data = cost_response.data
+                        cost_per_unit = cost_data.get('total_cost_with_overhead', 0)
+                        suggested_price = cost_data.get('suggested_price', 0)
+                        actual_price = float(menu.price) if menu.price else 0
+                        
+                        # Calculate profit
+                        cost_total = cost_per_unit * total_quantity
+                        profit = total_revenue - cost_total
+                        profit_margin = (profit / total_revenue * 100) if total_revenue > 0 else 0
+                        
+                        results.append({
+                            'menu_id': menu_id,
+                            'menu_name': stat['menu__name'],
+                            'branch_name': stat['menu__recipe__branch__name'],
+                            'recipe_name': stat['menu__recipe__name'],
+                            'total_quantity': total_quantity,
+                            'total_revenue': float(total_revenue),
+                            'total_cost': float(cost_total),
+                            'total_profit': float(profit),
+                            'profit_margin': float(profit_margin),
+                            'actual_price': actual_price,
+                            'suggested_price': suggested_price,
+                            'transaction_count': transaction_count,
+                            'cost_per_unit': cost_per_unit,
+                            'price_per_unit': actual_price / total_quantity if total_quantity > 0 else 0
+                        })
+                except Exception as e:
+                    # If cost calculation fails, show basic info without profit
+                    results.append({
+                        'menu_id': menu_id,
+                        'menu_name': stat['menu__name'],
+                        'branch_name': stat['menu__recipe__branch__name'],
+                        'recipe_name': stat['menu__recipe__name'],
+                        'total_quantity': total_quantity,
+                        'total_revenue': float(total_revenue),
+                        'total_cost': 0,
+                        'total_profit': 0,
+                        'profit_margin': 0,
+                        'actual_price': float(menu.price) if menu.price else 0,
+                        'suggested_price': 0,
+                        'transaction_count': transaction_count,
+                        'cost_per_unit': 0,
+                        'price_per_unit': 0,
+                        'error': f'Could not calculate cost: {str(e)}'
+                    })
+                    
+            except Menu.DoesNotExist:
+                continue
+        
+        # Summary totals
+        total_revenue = sum(r['total_revenue'] for r in results)
+        total_cost = sum(r['total_cost'] for r in results)
+        total_profit = sum(r['total_profit'] for r in results)
+        overall_margin = (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+        
+        return Response({
+            'summary': {
+                'total_revenue': float(total_revenue),
+                'total_cost': float(total_cost),
+                'total_profit': float(total_profit),
+                'profit_margin': float(overall_margin),
+                'total_transactions': sum(r['transaction_count'] for r in results),
+                'total_menus_sold': len(results)
+            },
+            'details': results,
+            'filters': {
+                'branch_id': branch_id,
+                'date_start': date_start,
+                'date_end': date_end,
+                'days': days
+            }
+        })
+
 class SettingViewSet(viewsets.ModelViewSet):
     queryset = Setting.objects.all()
     serializer_class = SettingSerializer
