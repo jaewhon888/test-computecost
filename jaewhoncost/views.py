@@ -814,6 +814,64 @@ class CostCalculatorFormView(TemplateView):
 
 
 # ===== Purchase ViewSets =====
+
+class ImportDataView(TemplateView):
+    template_name = 'jaewhoncost/import_data.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['branches'] = Branch.objects.all()
+        from datetime import date
+        context['today'] = date.today()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        from django.core.management import call_command
+        from django.contrib import messages
+        from django.shortcuts import redirect
+        import tempfile
+        import os
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            messages.error(request, 'กรุณาเลือกไฟล์')
+            return self.get(request, *args, **kwargs)
+
+        mode = request.POST.get('mode')
+        branch = request.POST.get('branch')
+        supplier = request.POST.get('supplier')
+        invoice = request.POST.get('invoice')
+        date_str = request.POST.get('date')
+        delimiter = request.POST.get('delimiter', ',')
+
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+            for chunk in uploaded_file.chunks():
+                tmp.write(chunk)
+            tmp_path = tmp.name
+
+        try:
+            # Call the management command
+            call_command(
+                'import_data',
+                tmp_path,
+                mode=mode,
+                branch=branch,
+                supplier=supplier,
+                invoice=invoice,
+                date=date_str,
+                delimiter=delimiter,
+                stdout=self.stdout,  # This won't capture well; we'll rely on messages
+                stderr=self.stderr,
+            )
+            messages.success(request, 'นำเข้าข้อมูลสำเร็จ')
+        except Exception as e:
+            messages.error(request, f'เกิดข้อผิดพลาด: {e}')
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+        return redirect('import-data')
 class PriceHistoryViewSet(viewsets.ModelViewSet):
     queryset = PriceHistory.objects.all().select_related('ingredient', 'purchase')
     serializer_class = PriceHistorySerializer

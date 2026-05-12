@@ -184,7 +184,7 @@
                 <td style="padding: 12px;">{{ recipe.branch.name }}</td>
                 <td style="padding: 12px;">{{ recipe.items.count }} รายการ</td>
                 <td style="padding: 12px; text-align: center;">
-                    <button class="btn btn-small" onclick="loadRecipe({{ recipe.id }})">เลือกสูตรนี้</button>
+                    <button type="button" class="btn btn-small" onclick="selectRecipe({{ recipe.id }})">เลือกสูตรนี้</button>
                 </td>
             </tr>
             {% empty %}
@@ -319,6 +319,8 @@
     
     // ฟังก์ชันเลือกสูตร
     function selectRecipe(recipeId) {
+        // สลับไปแท็บสูตร
+        showRecipeTab();
         // เคลียร์การเลือกเมนู
         if (selectedMenuId) {
             const prevCard = document.getElementById('menu-card-' + selectedMenuId);

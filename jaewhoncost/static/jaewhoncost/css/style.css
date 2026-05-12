@@ -278,3 +278,11 @@ select:focus {
     }
 }
 
+
+/* ===== Logo Image ===== */
+.logo-img {
+    height: 60px;
+    width: auto;
+    display: block;
+    margin: 0 auto;
+}

@@ -1,818 +1,346 @@
 {% extends 'jaewhoncost/base.html' %}
 {% load static %}
 
-{% block title %}Sales - Restaurant Management{% endblock %}
-{% block page_title %}💰 ระบบจัดการการขาย (Sales Management){% endblock %}
-
-{% block extra_head %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <style>
-  .sales-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
-  .stat-box { padding: 20px; border-radius: 12px; color: white; position: relative; overflow: hidden; }
-  .stat-box::after { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); }
-  .stat-box h3 { margin: 0; font-size: 28px; font-weight: 700; position: relative; z-index: 1; }
-  .stat-box p { margin: 4px 0 0 0; font-size: 13px; opacity: 0.9; position: relative; z-index: 1; }
-  .section-title { font-size: 16px; font-weight: 600; color: #1B3A57; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-  .payment-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .payment-cash { background: #e8f5e9; color: #2e7d32; }
-  .payment-transfer { background: #e3f2fd; color: #1565c0; }
-  .payment-credit_card { background: #fce4ec; color: #c62828; }
-  .payment-promptpay { background: #fff3e0; color: #e65100; }
-  .payment-other { background: #f3e5f5; color: #6a1b9a; }
-  .change-up { color: #2e7d32; font-weight: 600; }
-  .change-down { color: #c62828; font-weight: 600; }
-  .change-neutral { color: #757575; }
-  .top-menu-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
-  .top-menu-item:last-child { border-bottom: none; }
-  .top-rank { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
-  .top-rank-1 { background: linear-gradient(135deg, #FFD700, #FFA000); color: white; }
-  .top-rank-2 { background: linear-gradient(135deg, #C0C0C0, #9E9E9E); color: white; }
-  .top-rank-3 { background: linear-gradient(135deg, #CD7F32, #8D6E63); color: white; }
-  .top-rank-other { background: #ECEFF1; color: #546E7A; }
-  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-  .compare-box { padding: 15px; border-radius: 8px; text-align: center; }
-  .compare-box.label { background: #f8f9fa; }
-  .compare-box.current { background: #e8f5e9; }
-  .compare-box.previous { background: #fff3e0; }
-  .tab-btn { padding: 8px 16px; border: 2px solid #e0e0e0; background: white; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
-  .tab-btn.active { border-color: #D4AF37; background: #D4AF37; color: white; }
-  .tab-btn:hover:not(.active) { border-color: #D4AF37; color: #D4AF37; }
+    /* Ensure the page fills the viewport */
+    html, body {
+        height: 100%;
+        margin: 0;
+    }
+    /* Make sure the content area takes remaining vertical space */
+    .content {
+        flex: 1 1 auto; /* Allow it to grow and take remaining space */
+        overflow-y: auto; /* Scroll if content overflows */
+        padding-bottom: 2rem; /* Bottom spacing */
+    }
+    /* Optional: limit card heights to avoid stretching too much */
+    .card {
+        /* remove fixed height if any */
+        height: auto !important;
+        min-height: 150px; /* reasonable minimum */
+    }
+    /* Make table responsive */
+    .table-responsive {
+        margin-bottom: 1rem;
+    }
 </style>
 {% endblock %}
 
-{% block content %}
-<!-- ===== KPI Summary Cards ===== -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-    <div class="stat-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-        <h3 id="kpi-total-revenue">฿0</h3>
-        <p>💰 ยอดขายรวม</p>
-    </div>
-    <div class="stat-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-        <h3 id="kpi-transactions">0</h3>
-        <p>🧾 จำนวนรายการขาย</p>
-    </div>
-    <div class="stat-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-        <h3 id="kpi-today">฿0</h3>
-        <p>📅 ยอดขายวันนี้</p>
-    </div>
-    <div class="stat-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
-        <h3 id="kpi-avg">฿0</h3>
-        <p>📊 ค่าเฉลี่ยต่อรายการ</p>
-    </div>
-    <div class="stat-box" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-        <h3 id="kpi-items-sold">0</h3>
-        <p>🍽️ จำนวนเมนูที่ขาย</p>
-    </div>
-</div>
-
-<!-- ===== Toolbar: Filters + Actions ===== -->
-<div class="sales-card">
-    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end;">
-        <div style="flex: 1; min-width: 150px;">
-            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">สาขา</label>
-            <select id="filter-branch" onchange="applyFilters()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                <option value="">ทุกสาขา</option>
-            </select>
-        </div>
-        <div style="min-width: 150px;">
-            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">วันที่เริ่ม</label>
-            <input type="date" id="filter-date-start" onchange="applyFilters()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-        </div>
-        <div style="min-width: 150px;">
-            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">วันที่สิ้นสุด</label>
-            <input type="date" id="filter-date-end" onchange="applyFilters()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-        </div>
-        <div style="min-width: 140px;">
-            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">วิธีชำระ</label>
-            <select id="filter-payment" onchange="applyFilters()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                <option value="">ทุกวิธี</option>
-                <option value="cash">เงินสด</option>
-                <option value="transfer">เงินโอน</option>
-                <option value="credit_card">บัตรเครดิต</option>
-                <option value="promptpay">พร้อมเพย์</option>
-                <option value="other">อื่นๆ</option>
-            </select>
-        </div>
-        <div style="min-width: 180px;">
-            <label style="font-size: 12px; color: #666; display: block; margin-bottom: 4px;">ค้นหาเมนู</label>
-            <input type="text" id="filter-search" placeholder="พิมพ์ชื่อเมนู..." oninput="debounceSearch()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-        </div>
-        <div style="display: flex; gap: 8px; flex-shrink: 0;">
-            <button class="tab-btn" onclick="resetFilters()" style="padding: 8px 14px;">🔄 ล้าง</button>
-            <button class="tab-btn active" onclick="exportCSV()" style="border-color: #43a047; color: #43a047;">📥 Export CSV</button>
-            <button class="tab-btn active" onclick="showAddModal()" style="border-color: #D4AF37; background: #D4AF37; color: white;">+ เพิ่มรายการ</button>
-        </div>
-    </div>
-</div>
-
-<!-- ===== Charts Row ===== -->
-<div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-    <!-- Sales Trend Chart -->
-    <div class="sales-card">
-        <div class="section-title">📈 แนวโน้มยอดขาย</div>
-        <canvas id="chartTrend" height="200"></canvas>
-    </div>
-    <!-- Payment Method Pie -->
-    <div class="sales-card">
-        <div class="section-title">💳 วิธีชำระเงิน</div>
-        <canvas id="chartPayment" height="200"></canvas>
-    </div>
-    <!-- Weekday Bar -->
-    <div class="sales-card">
-        <div class="section-title">📅 ยอดขายตามวัน</div>
-        <canvas id="chartWeekday" height="200"></canvas>
-    </div>
-</div>
-
-<!-- ===== Top Selling + Comparison Row ===== -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-    <!-- Top Selling Menus -->
-    <div class="sales-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <div class="section-title" style="margin-bottom: 0;">🏆 เมนูขายดีติดอันดับ</div>
-            <select id="top-days" onchange="loadTopSelling()" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
-                <option value="7">7 วัน</option>
-                <option value="30" selected>30 วัน</option>
-                <option value="90">90 วัน</option>
-            </select>
-        </div>
-        <div id="top-selling-list">
-            <p style="text-align: center; color: #999; padding: 20px;">กำลังโหลด...</p>
-        </div>
-    </div>
-
-    <!-- Period Comparison -->
-    <div class="sales-card">
-        <div class="section-title">⚖️ เปรียบเทียบช่วงเวลา</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-            <div>
-                <label style="font-size: 11px; color: #666;">ช่วงปัจจุบัน: เริ่ม</label>
-                <input type="date" id="comp-cur-start" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
-            </div>
-            <div>
-                <label style="font-size: 11px; color: #666;">ช่วงปัจจุบัน: สิ้นสุด</label>
-                <input type="date" id="comp-cur-end" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
-            </div>
-            <div>
-                <label style="font-size: 11px; color: #666;">ช่วงเปรียบเทียบ: เริ่ม</label>
-                <input type="date" id="comp-prev-start" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
-            </div>
-            <div>
-                <label style="font-size: 11px; color: #666;">ช่วงเปรียบเทียบ: สิ้นสุด</label>
-                <input type="date" id="comp-prev-end" style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 12px;">
-            </div>
-        </div>
-        <button class="tab-btn active" onclick="loadComparison()" style="width: 100%; margin-bottom: 15px; border-color: #1565c0; color: #1565c0;">คำนวณเปรียบเทียบ</button>
-        <div id="compare-result" style="display: none;">
-            <div class="compare-grid">
-                <div class="compare-box label"><small>ยอดขาย</small><div id="comp-revenue" style="font-size: 18px; font-weight: 700; color: #1B3A57;">-</div></div>
-                <div class="compare-box label"><small>รายการ</small><div id="comp-transactions" style="font-size: 18px; font-weight: 700; color: #1B3A57;">-</div></div>
-                <div class="compare-box label"><small>กลาง/รายการ</small><div id="comp-avg" style="font-size: 18px; font-weight: 700; color: #1B3A57;">-</div></div>
-                <div class="compare-box label"><small>จำนวนชิ้น</small><div id="comp-qty" style="font-size: 18px; font-weight: 700; color: #1B3A57;">-</div></div>
-            </div>
-        </div>
-        <div id="compare-placeholder" style="text-align: center; color: #999; padding: 20px; font-size: 13px;">เลือกช่วงเวลาแล้วกด "คำนวณเปรียบเทียบ"</div>
-    </div>
-</div>
-
-<!-- ===== Sales Table ===== -->
-<div class="sales-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <div class="section-title" style="margin-bottom: 0;">📋 รายการขาย <span id="table-count" style="font-weight: normal; color: #999;">(0 รายการ)</span></div>
-    </div>
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            <thead>
-                <tr style="background: #f8f9fa; border-bottom: 2px solid #e0e0e0;">
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; color: #1B3A57;">#</th>
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; color: #1B3A57;">สาขา</th>
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; color: #1B3A57;">เมนู</th>
-                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; color: #1B3A57;">จำนวน</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1B3A57;">ราคา/หน่วย</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1B3A57;">รวม</th>
-                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; color: #1B3A57;">วิธีชำระ</th>
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; color: #1B3A57;">วันที่</th>
-                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; color: #1B3A57;">จัดการ</th>
-                </tr>
-            </thead>
-            <tbody id="sales-table-body">
-                <tr><td colspan="9" style="padding: 40px; text-align: center; color: #999;">กำลังโหลด...</td></tr>
-            </tbody>
-        </table>
-    </div>
-    <!-- Pagination -->
-    <div id="pagination" style="display: flex; justify-content: center; gap: 5px; margin-top: 15px;"></div>
-</div>
-
-<!-- ===== Modal: Add/Edit Sale ===== -->
-<div id="sale-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
-    <div style="background: white; width: 95%; max-width: 550px; margin: 40px auto; padding: 30px; border-radius: 12px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 id="modal-title" style="margin: 0; font-size: 18px; color: #1B3A57;">เพิ่มรายการขาย</h3>
-            <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
-        </div>
-        <form id="sale-form" onsubmit="return saveSale(event)">
-            <input type="hidden" id="sale-id">
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">สาขา *</label>
-                    <select id="sale-branch" required onchange="loadMenusByBranch()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                        <option value="">เลือกสาขา</option>
-                    </select>
-                </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">เมนู *</label>
-                    <select id="sale-menu" required onchange="updateTotalPrice()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                        <option value="">เลือกเมนู</option>
-                    </select>
-                </div>
-            </div>
-
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">จำนวน *</label>
-                    <input type="number" id="sale-quantity" required min="1" value="1" oninput="updateTotalPrice()" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">ราคา/หน่วย</label>
-                    <input type="text" id="sale-unit-price" readonly style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; background: #f8f9fa;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">รวม</label>
-                    <input type="text" id="sale-total-display" readonly style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; background: #f8f9fa; font-weight: 700; color: #2e7d32;">
-                </div>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">วิธีชำระเงิน *</label>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="payment_method" value="cash" checked> 💵 เงินสด
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="payment_method" value="transfer"> 🏦 เงินโอน
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="payment_method" value="credit_card"> 💳 บัตรเครดิต
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="payment_method" value="promptpay"> 📱 พร้อมเพย์
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; font-size: 13px;">
-                        <input type="radio" name="payment_method" value="other"> 📝 อื่นๆ
-                    </label>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">วันที่ขาย</label>
-                <input type="datetime-local" id="sale-date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <label style="font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px;">หมายเหตุ</label>
-                <input type="text" id="sale-note" placeholder="เช่น ลูกค้าสั่ง delivery, ลดราคา..." maxlength="255" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px;">
-            </div>
-
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button type="button" class="tab-btn" onclick="closeModal()">ยกเลิก</button>
-                <button type="submit" class="tab-btn active" style="border-color: #D4AF37; background: #D4AF37; color: white;">บันทึก</button>
-            </div>
-        </form>
-    </div>
-</div>
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-// ===== Constants & State =====
-const API_BASE = window.location.origin + '/api';
-let state = {
-    sales: [],
-    branches: [],
-    allMenus: [],
-    filters: { branch: '', dateStart: '', dateEnd: '', payment: '', search: '' },
-    pagination: { page: 1, pageSize: 25, total: 0 },
-    charts: { trend: null, payment: null, weekday: null }
-};
+{% block title %}Sales - Restaurant Management{% endblock %}
+{% block page_title %}💰 ระบบจัดการการขาย (Sales Management){% endblock %}
 
-const PAYMENT_BADGE = {
-    'cash': 'payment-cash', 'transfer': 'payment-transfer',
-    'credit_card': 'payment-credit_card', 'promptpay': 'payment-promptpay',
-    'other': 'payment-other'
-};
-const PAYMENT_LABEL = {
-    'cash': 'เงินสด', 'transfer': 'เงินโอน',
-    'credit_card': 'บัตรเครดิต', 'promptpay': 'พร้อมเพย์', 'other': 'อื่นๆ'
-};
+{% block content %}
+<div class="px-4 py-3">
+    <!-- Back to Dashboard -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ block.super }}</h1>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">← กลับไปที่หน้าหลัก</a>
+    </div>
 
-const fmt = (n) => '฿' + parseFloat(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// ===== Init =====
-document.addEventListener('DOMContentLoaded', function() {
-    init();
-});
-
-async function init() {
-    setDefaultDateTime();
-    // Set default date range to current month
-    const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const today = now.toISOString().split('T')[0];
-    document.getElementById('filter-date-start').value = firstDay;
-    document.getElementById('filter-date-end').value = today;
-    state.filters.dateStart = firstDay;
-    state.filters.dateEnd = today;
-
-    await Promise.all([loadBranches(), loadAllMenus()]);
-    await loadAllData();
-}
-
-function setDefaultDateTime() {
-    const now = new Date();
-    const tzOffset = now.getTimezoneOffset() * 60000;
-    document.getElementById('sale-date').value = new Date(now - tzOffset).toISOString().slice(0, 16);
-}
-
-// ===== Data Loading =====
-async function loadAllData() {
-    await Promise.all([
-        loadSales(),
-        loadTopSelling(),
-        loadPaymentSummary(),
-        loadWeekdayData()
-    ]);
-}
-
-async function loadBranches() {
-    try {
-        const res = await fetch(`${API_BASE}/branches/`);
-        state.branches = await res.json();
-        const fBranch = document.getElementById('filter-branch');
-        const mBranch = document.getElementById('sale-branch');
-        fBranch.innerHTML = '<option value="">ทุกสาขา</option>';
-        mBranch.innerHTML = '<option value="">เลือกสาขา</option>';
-        state.branches.forEach(b => {
-            fBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-            mBranch.innerHTML += `<option value="${b.id}">${b.name}</option>`;
-        });
-    } catch (e) { console.error('loadBranches:', e); }
-}
-
-async function loadAllMenus() {
-    try {
-        const res = await fetch(`${API_BASE}/menus/`);
-        state.allMenus = await res.json();
-    } catch (e) { console.error('loadAllMenus:', e); }
-}
-
-// Build query string from filters
-function buildQuery() {
-    const p = new URLSearchParams();
-    if (state.filters.branch) p.set('branch_id', state.filters.branch);
-    if (state.filters.dateStart) p.set('date_start', state.filters.dateStart);
-    if (state.filters.dateEnd) p.set('date_end', state.filters.dateEnd + 'T23:59:59');
-    if (state.filters.payment) p.set('payment_method', state.filters.payment);
-    if (state.filters.search) p.set('search', state.filters.search);
-    return p.toString();
-}
-
-async function loadSales() {
-    try {
-        const qs = buildQuery();
-        const res = await fetch(`${API_BASE}/sales/?${qs}`);
-        state.sales = await res.json();
-        updateKPIs();
-        updateTable();
-        updateTrendChart();
-    } catch (e) {
-        console.error('loadSales:', e);
-        document.getElementById('sales-table-body').innerHTML = '<tr><td colspan="9" style="padding:30px;text-align:center;color:#dc3545;">เกิดข้อผิดพลาดในการโหลด</td></tr>';
-    }
-}
-
-async function loadTopSelling() {
-    try {
-        const days = document.getElementById('top-days').value;
-        let url = `${API_BASE}/sales/top_selling/?days=${days}&limit=10`;
-        if (state.filters.branch) url += `&branch_id=${state.filters.branch}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        renderTopSelling(data);
-    } catch (e) { console.error('loadTopSelling:', e); }
-}
-
-async function loadPaymentSummary() {
-    try {
-        let url = `${API_BASE}/sales/payment_summary/?days=30`;
-        if (state.filters.branch) url += `&branch_id=${state.filters.branch}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        updatePaymentChart(data);
-    } catch (e) { console.error('loadPaymentSummary:', e); }
-}
-
-async function loadWeekdayData() {
-    try {
-        let url = `${API_BASE}/sales/by_weekday/?days=30`;
-        if (state.filters.branch) url += `&branch_id=${state.filters.branch}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        updateWeekdayChart(data);
-    } catch (e) { console.error('loadWeekdayData:', e); }
-}
-
-async function loadComparison() {
-    const curStart = document.getElementById('comp-cur-start').value;
-    const curEnd = document.getElementById('comp-cur-end').value;
-    const prevStart = document.getElementById('comp-prev-start').value;
-    const prevEnd = document.getElementById('comp-prev-end').value;
-
-    if (!curStart || !curEnd) { alert('กรุณาเลือกช่วงเวลาปัจจุบัน'); return; }
-
-    try {
-        let url = `${API_BASE}/sales/compare_periods/?cur_start=${curStart}&cur_end=${curEnd}`;
-        if (prevStart && prevEnd) url += `&prev_start=${prevStart}&prev_end=${prevEnd}`;
-        if (state.filters.branch) url += `&branch_id=${state.filters.branch}`;
-        const res = await fetch(url);
-        const data = await res.json();
-        renderComparison(data);
-    } catch (e) { console.error('loadComparison:', e); }
-}
-
-// ===== KPI Updates =====
-function updateKPIs() {
-    const sales = state.sales;
-    const today = new Date().toISOString().split('T')[0];
-
-    const totalRevenue = sales.reduce((s, x) => s + parseFloat(x.total_price), 0);
-    const todayRevenue = sales.filter(x => x.sale_date.startsWith(today)).reduce((s, x) => s + parseFloat(x.total_price), 0);
-    const totalItems = sales.reduce((s, x) => s + parseInt(x.quantity), 0);
-
-    document.getElementById('kpi-total-revenue').textContent = fmt(totalRevenue);
-    document.getElementById('kpi-transactions').textContent = sales.length.toLocaleString();
-    document.getElementById('kpi-today').textContent = fmt(todayRevenue);
-    document.getElementById('kpi-avg').textContent = fmt(sales.length ? totalRevenue / sales.length : 0);
-    document.getElementById('kpi-items-sold').textContent = totalItems.toLocaleString();
-}
-
-// ===== Table =====
-function updateTable() {
-    const tbody = document.getElementById('sales-table-body');
-    const sales = state.sales;
-
-    document.getElementById('table-count').textContent = `(${sales.length} รายการ)`;
-
-    if (!sales.length) {
-        tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:#999;">ไม่พบรายการขาย</td></tr>';
-        return;
-    }
-
-    // Build menu price lookup
-    const menuPriceMap = {};
-    state.allMenus.forEach(m => { menuPriceMap[m.id] = parseFloat(m.price); });
-
-    tbody.innerHTML = sales.map(sale => {
-        const unitPrice = menuPriceMap[sale.menu] || parseFloat(sale.total_price) / parseInt(sale.quantity);
-        const badgeClass = PAYMENT_BADGE[sale.payment_method] || 'payment-other';
-        const badgeLabel = PAYMENT_LABEL[sale.payment_method] || sale.payment_method;
-        const d = new Date(sale.sale_date);
-        const dateStr = d.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const timeStr = d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
-
-        return `<tr style="border-bottom:1px solid #f0f0f0;" ondblclick="editSale(${sale.id})">
-            <td style="padding:10px;">#${sale.id}</td>
-            <td style="padding:10px;">${sale.branch_name || '-'}</td>
-            <td style="padding:10px;font-weight:500;">${sale.menu_name || '-'}</td>
-            <td style="padding:10px;text-align:center;">${sale.quantity}</td>
-            <td style="padding:10px;text-align:right;">${fmt(unitPrice)}</td>
-            <td style="padding:10px;text-align:right;font-weight:600;color:#2e7d32;">${fmt(sale.total_price)}</td>
-            <td style="padding:10px;text-align:center;"><span class="payment-badge ${badgeClass}">${badgeLabel}</span></td>
-            <td style="padding:10px;"><small>${dateStr}<br><span style="color:#999;">${timeStr}</span></small>${sale.note ? `<br><small style="color:#999;font-style:italic;">📝 ${sale.note}</small>` : ''}</td>
-            <td style="padding:10px;text-align:center;">
-                <button onclick="editSale(${sale.id})" style="background:none;border:none;cursor:pointer;font-size:16px;" title="แก้ไข">✏️</button>
-                <button onclick="deleteSale(${sale.id})" style="background:none;border:none;cursor:pointer;font-size:16px;" title="ลบ">🗑️</button>
-            </td>
-        </tr>`;
-    }).join('');
-}
-
-// ===== Top Selling =====
-function renderTopSelling(data) {
-    const container = document.getElementById('top-selling-list');
-    if (!data.length) {
-        container.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">ไม่มีข้อมูล</p>';
-        return;
-    }
-    container.innerHTML = data.map((item, i) => {
-        const rank = i + 1;
-        const rankClass = rank <= 3 ? `top-rank-${rank}` : 'top-rank-other';
-        return `<div class="top-menu-item">
-            <div class="top-rank ${rankClass}">${rank}</div>
-            <div style="flex:1;">
-                <div style="font-weight:600;color:#1B3A57;">${item.menu__name || '-'}</div>
-                <small style="color:#999;">${item.transaction_count} รายการ · ${item.total_quantity} ชิ้น</small>
+    <!-- ===== KPI Summary Cards ===== -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">💰 ยอดขายรวม</h5>
+                    <h3 class="mb-0" id="kpi-total-revenue">฿0</h3>
+                </div>
             </div>
-            <div style="text-align:right;">
-                <div style="font-weight:700;color:#2e7d32;">${fmt(item.total_revenue)}</div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">🧾 จำนวนรายการขาย</h5>
+                    <h3 class="mb-0" id="kpi-transactions">0</h3>
+                </div>
             </div>
-        </div>`;
-    }).join('');
-}
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">📅 ยอดขายวันนี้</h5>
+                    <h3 class="mb-0" id="kpi-today">฿0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">📊 ค่าเฉลี่ยต่อรายการ</h5>
+                    <h3 class="mb-0" id="kpi-avg">฿0</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">🍽️ จำนวนเมนูที่ขาย</h5>
+                    <h3 class="mb-0" id="kpi-items-sold">0</h3>
+                </div>
+            </div>
+        </div>
+    </div>
 
-// ===== Comparison =====
-function renderComparison(data) {
-    document.getElementById('compare-placeholder').style.display = 'none';
-    document.getElementById('compare-result').style.display = 'block';
+    <!-- ===== Toolbar: Filters + Actions ===== -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">สาขา</label>
+                    <select id="filter-branch" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="">ทุกสาขา</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">วันที่เริ่ม</label>
+                    <input type="date" id="filter-date-start" class="form-control form-control-sm" onchange="applyFilters()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">วันที่สิ้นสุด</label>
+                    <input type="date" id="filter-date-end" class="form-control form-control-sm" onchange="applyFilters()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">วิธีชำระ</label>
+                    <select id="filter-payment" class="form-select form-select-sm" onchange="applyFilters()">
+                        <option value="">ทุกวิธี</option>
+                        <option value="cash">เงินสด</option>
+                        <option value="transfer">เงินโอน</option>
+                        <option value="credit_card">บัตรเครดิต</option>
+                        <option value="promptpay">พร้อมเพย์</option>
+                        <option value="other">อื่นๆ</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted">ค้นหาเมนู</label>
+                    <input type="text" id="filter-search" class="form-control form-control-sm" placeholder="พิมพ์ชื่อเมนู..." oninput="debounceSearch()">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-outline-secondary" onclick="resetFilters()">🔄 ล้าง</button>
+                    <button class="btn btn-success" onclick="exportCSV()">📥 Export CSV</button>
+                    <button class="btn btn-warning" onclick="showAddModal()">+ เพิ่มรายการ</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    const renderChange = (cur, pctEl, pct) => {
-        const cls = pct > 0 ? 'change-up' : pct < 0 ? 'change-down' : 'change-neutral';
-        const arrow = pct > 0 ? '▲' : pct < 0 ? '▼' : '—';
-        return `<div class="${cls}" style="font-size:12px;">${arrow} ${Math.abs(pct)}%</div>`;
-    };
+    <!-- ===== Charts Row ===== -->
+    <div class="row g-4 mb-4">
+        <!-- Sales Trend Chart -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📈 แนวโน้มยอดขาย</h6>
+                </div>
+                <div class="card-body p-0">
+                    <canvas id="chartTrend" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Payment Method Pie -->
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">💳 วิธีชำระเงิน</h6>
+                </div>
+                <div class="card-body p-0">
+                    <canvas id="chartPayment" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Weekday Bar -->
+        <div class="col-md-3">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📅 ยอดขายตามวัน</h6>
+                </div>
+                <div class="card-body p-0">
+                    <canvas id="chartWeekday" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    document.getElementById('comp-revenue').innerHTML = `${fmt(data.current.total_revenue)} ${renderChange(data.current.total_revenue, null, data.changes.revenue_change_pct)}`;
-    document.getElementById('comp-transactions').innerHTML = `${data.current.total_transactions.toLocaleString()} ${renderChange(data.current.total_transactions, null, data.changes.transactions_change_pct)}`;
-    document.getElementById('comp-avg').innerHTML = `${fmt(data.current.avg_transaction)}`;
-    document.getElementById('comp-qty').innerHTML = `${data.current.total_quantity.toLocaleString()}`;
+    <!-- ===== Top Selling + Comparison Row ===== -->
+    <div class="row g-4 mb-4">
+        <!-- Top Selling Menus -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">🏆 เมนูขายดีติดอันดับ</h6>
+                    <select id="top-days" class="form-select form-select-sm" onchange="loadTopSelling()">
+                        <option value="7">7 วัน</option>
+                        <option value="30" selected>30 วัน</option>
+                        <option value="90">90 วัน</option>
+                    </select>
+                </div>
+                <div class="card-body p-0">
+                    <div id="top-selling-list" class="p-3">
+                        <p class="text-center text-muted p-3">กำลังโหลด...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Period Comparison -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">⚖️ เปรียบเทียบช่วงเวลา</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small">ช่วงปัจจุบัน: เริ่ม</label>
+                            <input type="date" id="comp-cur-start" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">ช่วงปัจจุบัน: สิ้นสุด</label>
+                            <input type="date" id="comp-cur-end" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small">ช่วงเปรียบเทียบ: เริ่ม</label>
+                            <input type="date" id="comp-prev-start" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">ช่วงเปรียบเทียบ: สิ้นสุด</label>
+                            <input type="date" id="comp-prev-end" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary w-100 mb-3" onclick="loadComparison()">คำนวณเปรียบเทียบ</button>
+                    <div id="compare-placeholder" class="text-center text-muted p-3">เลือกช่วงเวลาแล้วกด "คำนวณเปรียบเทียบ"</div>
+                    <div id="compare-result" class="p-3" style="display:none;">
+                        <div class="row text-center">
+                            <div class="col-3"><small>ยอดขาย</small><div id="comp-revenue" class="fw-bold">-</div></div>
+                            <div class="col-3"><small>รายการ</small><div id="comp-transactions" class="fw-bold">-</div></div>
+                            <div class="col-3"><small>กลาง/รายการ</small><div id="comp-avg" class="fw-bold">-</div></div>
+                            <div class="col-3"><small>จำนวนชิ้น</small><div id="comp-qty" class="fw-bold">-</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    // Add period labels
-    const curLabel = document.createElement('div');
-    curLabel.style.cssText = 'grid-column: 1 / -1; text-align: center; font-size: 11px; color: #999; margin-top: 8px;';
-    curLabel.innerHTML = `เทียบกับ: ${fmt(data.previous.total_revenue)} | ${data.previous.total_transactions} รายการ`;
-    const resultDiv = document.getElementById('compare-result');
-    const existing = resultDiv.querySelector('.compare-period-label');
-    if (existing) existing.remove();
-    curLabel.className = 'compare-period-label';
-    resultDiv.appendChild(curLabel);
-}
+    <!-- ===== Sales Table ===== -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">📋 รายการขาย <span id="table-count" class="text-muted">(0 รายการ)</span></h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="text-start">#</th>
+                            <th scope="col" class="text-start">สาขา</th>
+                            <th scope="col" class="text-start">เมนู</th>
+                            <th scope="col" class="text-center">จำนวน</th>
+                            <th scope="col" class="text-end">ราคา/หน่วย</th>
+                            <th scope="col" class="text-end">รวม</th>
+                            <th scope="col" class="text-center">วิธีชำระ</th>
+                            <th scope="col" class="text-start">วันที่</th>
+                            <th scope="col" class="text-center">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-table-body">
+                        <tr><td colspan="9" class="text-center py-4 text-muted">กำลังโหลด...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="pagination" class="d-flex justify-content-center mt-3"></div>
+        </div>
+    </div>
 
-// ===== Charts =====
-function updateTrendChart() {
-    const sales = state.sales;
-    // Group by date
-    const dateMap = {};
-    sales.forEach(s => {
-        const d = s.sale_date.slice(0, 10);
-        dateMap[d] = (dateMap[d] || 0) + parseFloat(s.total_price);
-    });
-
-    // Sort and take last 14 days
-    const sorted = Object.entries(dateMap).sort((a, b) => a[0].localeCompare(b[0]));
-    const last14 = sorted.slice(-14);
-
-    const labels = last14.map(([d]) => {
-        const dt = new Date(d);
-        return dt.toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit' });
-    });
-    const data = last14.map(([, v]) => v);
-
-    const ctx = document.getElementById('chartTrend').getContext('2d');
-    if (state.charts.trend) state.charts.trend.destroy();
-
-    state.charts.trend = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'ยอดขาย (฿)',
-                data,
-                backgroundColor: 'rgba(212, 175, 55, 0.6)',
-                borderColor: '#D4AF37',
-                borderWidth: 1,
-                borderRadius: 4,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { ticks: { font: { size: 10 } }, grid: { display: false } }
-            }
-        }
-    });
-}
-
-function updatePaymentChart(data) {
-    const ctx = document.getElementById('chartPayment').getContext('2d');
-    if (state.charts.payment) state.charts.payment.destroy();
-
-    const colors = ['#4caf50', '#2196f3', '#f44336', '#ff9800', '#9c27b0'];
-    state.charts.payment = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: data.map(d => d.payment_method_display || d.payment_method),
-            datasets: [{
-                data: data.map(d => d.total_revenue),
-                backgroundColor: colors.slice(0, data.length),
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8 } }
-            },
-            cutout: '60%'
-        }
-    });
-}
-
-function updateWeekdayChart(data) {
-    const ctx = document.getElementById('chartWeekday').getContext('2d');
-    if (state.charts.weekday) state.charts.weekday.destroy();
-
-    // Order by weekday (Mon=1 ... Sun=0/7)
-    const dayOrder = [2, 3, 4, 5, 6, 7, 1];
-    const sorted = [...data].sort((a, b) => dayOrder.indexOf(a.day_of_week) - dayOrder.indexOf(b.day_of_week));
-
-    state.charts.weekday = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: sorted.map(d => d.day_name || `วัน ${d.day_of_week}`),
-            datasets: [{
-                label: 'ยอดขาย',
-                data: sorted.map(d => d.total_revenue),
-                backgroundColor: sorted.map((_, i) => `hsla(${40 + i * 40}, 70%, 55%, 0.7)`),
-                borderRadius: 4,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { ticks: { font: { size: 10 } }, grid: { display: false } }
-            }
-        }
-    });
-}
-
-// ===== Modal & Form =====
-function loadMenusByBranch() {
-    const branchId = document.getElementById('sale-branch').value;
-    const menuSelect = document.getElementById('sale-menu');
-    menuSelect.innerHTML = '<option value="">เลือกเมนู</option>';
-    if (!branchId) return;
-    state.allMenus.filter(m => m.branch == branchId).forEach(m => {
-        menuSelect.innerHTML += `<option value="${m.id}" data-price="${m.price}">${m.name} (${fmt(m.price)})</option>`;
-    });
-}
-
-function updateTotalPrice() {
-    const sel = document.getElementById('sale-menu');
-    const qty = parseInt(document.getElementById('sale-quantity').value) || 0;
-    const opt = sel.options[sel.selectedIndex];
-    const price = opt && opt.dataset.price ? parseFloat(opt.dataset.price) : 0;
-    document.getElementById('sale-unit-price').value = price ? fmt(price) : '';
-    document.getElementById('sale-total-display').value = fmt(price * qty);
-}
-
-function showAddModal() {
-    document.getElementById('modal-title').textContent = '➕ เพิ่มรายการขาย';
-    document.getElementById('sale-form').reset();
-    document.getElementById('sale-id').value = '';
-    document.getElementById('sale-menu').innerHTML = '<option value="">เลือกเมนู</option>';
-    setDefaultDateTime();
-    document.getElementById('sale-modal').style.display = 'block';
-}
-
-async function editSale(id) {
-    try {
-        const res = await fetch(`${API_BASE}/sales/${id}/`);
-        const sale = await res.json();
-        document.getElementById('modal-title').textContent = '✏️ แก้ไขรายการขาย #' + sale.id;
-        document.getElementById('sale-id').value = sale.id;
-        document.getElementById('sale-branch').value = sale.branch;
-        loadMenusByBranch();
-        setTimeout(() => {
-            document.getElementById('sale-menu').value = sale.menu;
-            document.getElementById('sale-quantity').value = sale.quantity;
-            // Set payment method radio
-            const radios = document.getElementsByName('payment_method');
-            for (const r of radios) { if (r.value === (sale.payment_method || 'cash')) r.checked = true; }
-            // Set date
-            const d = new Date(sale.sale_date);
-            const tzOffset = d.getTimezoneOffset() * 60000;
-            document.getElementById('sale-date').value = new Date(d - tzOffset).toISOString().slice(0, 16);
-            document.getElementById('sale-note').value = sale.note || '';
-            updateTotalPrice();
-        }, 100);
-        document.getElementById('sale-modal').style.display = 'block';
-    } catch (e) { console.error('editSale:', e); alert('เกิดข้อผิดพลาด'); }
-}
-
-async function saveSale(e) {
-    e.preventDefault();
-    const id = document.getElementById('sale-id').value;
-    const menuSel = document.getElementById('sale-menu');
-    const opt = menuSel.options[menuSel.selectedIndex];
-    const price = parseFloat(opt.dataset.price) || 0;
-    const qty = parseInt(document.getElementById('sale-quantity').value) || 0;
-    const paymentRadio = document.querySelector('input[name="payment_method"]:checked');
-
-    const saleData = {
-        branch: document.getElementById('sale-branch').value,
-        menu: menuSel.value,
-        quantity: qty,
-        total_price: (price * qty).toFixed(2),
-        payment_method: paymentRadio ? paymentRadio.value : 'cash',
-        note: document.getElementById('sale-note').value || '',
-        sale_date: document.getElementById('sale-date').value || new Date().toISOString(),
-    };
-
-    if (!saleData.branch || !saleData.menu || !saleData.quantity) {
-        alert('กรุณากรอกข้อมูลให้ครบ'); return;
-    }
-
-    try {
-        const method = id ? 'PUT' : 'POST';
-        const url = id ? `${API_BASE}/sales/${id}/` : `${API_BASE}/sales/`;
-        const res = await fetch(url, {
-            method,
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-            body: JSON.stringify(saleData)
-        });
-        if (!res.ok) throw new Error('Save failed');
-        closeModal();
-        await loadAllData();
-    } catch (e) {
-        console.error('saveSale:', e);
-        alert('เกิดข้อผิดพลาด: ' + e.message);
-    }
-    return false;
-}
-
-async function deleteSale(id) {
-    if (!confirm('ยืนยันการลบรายการขาย #' + id + '?')) return;
-    try {
-        const res = await fetch(`${API_BASE}/sales/${id}/`, {
-            method: 'DELETE', headers: { 'X-CSRFToken': getCookie('csrftoken') }
-        });
-        if (!res.ok) throw new Error('Delete failed');
-        await loadAllData();
-    } catch (e) { console.error('deleteSale:', e); alert('เกิดข้อผิดพลาดในการลบ'); }
-}
-
-function closeModal() {
-    document.getElementById('sale-modal').style.display = 'none';
-}
-
-// ===== Filters =====
-function applyFilters() {
-    state.filters.branch = document.getElementById('filter-branch').value;
-    state.filters.dateStart = document.getElementById('filter-date-start').value;
-    state.filters.dateEnd = document.getElementById('filter-date-end').value;
-    state.filters.payment = document.getElementById('filter-payment').value;
-    loadSales();
-}
-
-let searchTimer = null;
-function debounceSearch() {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-        state.filters.search = document.getElementById('filter-search').value;
-        loadSales();
-    }, 400);
-}
-
-function resetFilters() {
-    document.getElementById('filter-branch').value = '';
-    document.getElementById('filter-date-start').value = '';
-    document.getElementById('filter-date-end').value = '';
-    document.getElementById('filter-payment').value = '';
-    document.getElementById('filter-search').value = '';
-    state.filters = { branch: '', dateStart: '', dateEnd: '', payment: '', search: '' };
-    loadAllData();
-}
-
-// ===== Export =====
-function exportCSV() {
-    let url = `${API_BASE}/sales/export_csv/?days=365`;
-    if (state.filters.branch) url += `&branch_id=${state.filters.branch}`;
-    if (state.filters.dateStart) url += `&date_start=${state.filters.dateStart}`;
-    if (state.filters.dateEnd) url += `&date_end=${state.filters.dateEnd}`;
-    window.location.href = url;
-}
-
-// ===== Utility =====
-function getCookie(name) {
-    let value = null;
-    if (document.cookie && document.cookie !== '') {
-        document.cookie.split(';').forEach(c => {
-            const [k, v] = c.trim().split('=');
-            if (k === name) value = v;
-        });
-    }
-    return value;
-}
-
-// Keyboard shortcuts
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeModal();
-});
-</script>
+    <!-- ===== Modal: Add/Edit Sale ===== -->
+    <div class="modal fade" id="sale-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modal-title">เพิ่มรายการขาย</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeModal()"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="sale-form" onsubmit="return saveSale(event)">
+                        <input type="hidden" id="sale-id">
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">สาขา *</label>
+                                <select id="sale-branch" class="form-select" required onchange="loadMenusByBranch()">
+                                    <option value="">เลือกสาขา</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">เมนู *</label>
+                                <select id="sale-menu" class="form-select" required onchange="updateTotalPrice()">
+                                    <option value="">เลือกเมนู</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">จำนวน *</label>
+                                <input type="number" id="sale-quantity" class="form-control" required min="1" value="1" oninput="updateTotalPrice()">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">ราคา/หน่วย</label>
+                                <input type="text" id="sale-unit-price" class="form-control" readonly style="background-color: #f8f9fa;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">รวม</label>
+                                <input type="text" id="sale-total-display" class="form-control fw-bold" readonly style="background-color: #f8f9fa; color: #2e7d32;">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">วิธีชำระเงิน *</label>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="payment_method" value="cash" checked>
+                                <label class="form-check-label">💵 เงินสด</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="payment_method" value="transfer">
+                                <label class="form-check-label">🏦 เงินโอน</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="payment_method" value="credit_card">
+                                <label class="form-check-label">💳 บัตรเครดิต</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="payment_method" value="promptpay">
+                                <label class="form-check-label">📱 พร้อมเพย์</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="payment_method" value="other">
+                                <label class="form-check-label">📝 อื่นๆ</label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">วันที่ขาย</label>
+                            <input type="datetime-local" id="sale-date" class="form-control">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">หมายเหตุ</label>
+                            <input type="text" id="sale-note" class="form-control" placeholder="เช่น ลูกค้าสั่ง delivery, ลดราคา..." maxlength="255">
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" onclick="closeModal()">ยกเลิก</button>
+                            <button type="submit" class="btn btn-warning">บันทึก</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
