@@ -6,7 +6,8 @@
     <title>{% block title %}Restaurant Management System{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'jaewhoncost/css/style.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@300;400;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
 <body>

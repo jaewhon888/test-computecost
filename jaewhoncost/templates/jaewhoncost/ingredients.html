@@ -1,359 +1,446 @@
 {% extends 'jaewhoncost/base.html' %}
+{% load static %}
 
-{% block title %}Ingredients - Restaurant Management{% endblock %}
-{% block page_title %}Ingredients Management{% endblock %}
+{% block title %}วัตถุดิบ (Ingredients) - Restaurant Management{% endblock %}
+{% block page_title %}📦 จัดการวัตถุดิบ (Ingredients Management){% endblock %}
+
+{% block extra_css %}
+<style>
+  .inv-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .inv-stat { padding: 18px; border-radius: 12px; color: white; position: relative; overflow: hidden; }
+  .inv-stat::after { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); }
+  .inv-stat h3 { margin: 0; font-size: 26px; font-weight: 700; position: relative; z-index: 1; font-family: 'Prompt', sans-serif; }
+  .inv-stat p { margin: 4px 0 0 0; font-size: 12px; opacity: 0.9; position: relative; z-index: 1; font-family: 'Prompt', sans-serif; }
+  .inv-section { font-size: 15px; font-weight: 600; color: #1B3A57; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-family: 'Prompt', sans-serif; }
+  .stock-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .stock-ok { background: #e8f5e9; color: #2e7d32; }
+  .stock-low { background: #fff3e0; color: #e65100; }
+  .stock-out { background: #fce4ec; color: #c62828; }
+  .unit-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #f0f0f0; color: #555; }
+  .tab-btn { padding: 8px 16px; border: 2px solid #e0e0e0; background: white; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; font-family: 'Prompt', sans-serif; }
+  .tab-btn.active { border-color: #D4AF37; background: #D4AF37; color: white; }
+  .tab-btn:hover:not(.active) { border-color: #D4AF37; color: #D4AF37; }
+  .inv-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .inv-table thead tr { background: #f8f9fa; border-bottom: 2px solid #e0e0e0; }
+  .inv-table .th-sort { cursor: pointer; user-select: none; }
+  .inv-table .th-sort:hover { color: #D4AF37; }
+  .inv-table .th-sort::after { content: '⇅'; margin-left: 4px; font-size: 11px; color: #aaa; }
+  .inv-table tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
+  .inv-table tbody tr:hover { background: #fafafa; }
+  .inv-table td { padding: 10px 12px; vertical-align: middle; }
+  .search-input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; }
+  .price-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+  .modal-body { background: white; width: 95%; max-width: 500px; margin: 40px auto; padding: 28px; border-radius: 12px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .modal-body h3 { margin: 0 0 18px 0; font-size: 17px; color: #1B3A57; font-family: 'Prompt', sans-serif; }
+  .form-label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px; font-family: 'Prompt', sans-serif; }
+  .form-select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .form-row { display: grid; gap: 12px; margin-bottom: 14px; }
+  .form-row.two { grid-template-columns: 1fr 1fr; }
+  .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+  .detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .detail-table th { padding: 8px 10px; background: #f8f9fa; text-align: left; font-weight: 600; }
+  .detail-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+  .bar-chart { height: 24px; background: #f0f0f0; border-radius: 6px; overflow: hidden; position: relative; }
+  .bar-chart-fill { height: 100%; border-radius: 6px; transition: width 0.3s; }
+  .bar-chart-label { position: absolute; right: 8px; top: 0; line-height: 24px; font-size: 10px; color: #666; font-weight: 600; }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h3>📦 Ingredients</h3>
-    <button class="btn btn-primary" onclick="openAddModal()">+ Add Ingredient</button>
-</div>
-
-<div class="card">
-    <div id="error-msg" style="color: red; display: none; padding: 10px; margin-bottom: 10px; border: 1px solid red;"></div>
-    <table id="ingredients-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Branch</th>
-                <th>Price</th>
-                <th>Unit</th>
-                <th>Stock</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Add/Edit Modal -->
-<div id="ingredientModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>Add/Edit Ingredient</h2>
-        <form id="ingredientForm">
-            <div class="form-group">
-                <label>Branch:</label>
-                <select id="branch_id" required>
-                    <option value="">Select Branch</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Name:</label>
-                <input type="text" id="name" required>
-            </div>
-            <div class="form-group">
-                <label>Price:</label>
-                <input type="number" id="price" step="0.01" required>
-            </div>
-            <div class="form-group">
-                <label>Unit:</label>
-                <select id="unit" required>
-                    <option value="kg">Kilogram (kg)</option>
-                    <option value="l">Liter (l)</option>
-                    <option value="pcs">Pieces (pcs)</option>
-                    <option value="g">Gram (g)</option>
-                    <option value="ml">Milliliter (ml)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Stock:</label>
-                <input type="number" id="stock" required>
-            </div>
-            <button type="button" class="btn btn-primary" onclick="saveIngredient()">Save</button>
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        </form>
+<!-- ===== KPI Summary Cards ===== -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px;">
+    <div class="inv-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h3 id="kpi-total">0</h3>
+        <p>📦 รายการทั้งหมด</p>
+    </div>
+    <div class="inv-stat" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <h3 id="kpi-value">฿0</h3>
+        <p>💰 มูลค่าสต็อกรวม</p>
+    </div>
+    <div class="inv-stat" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+        <h3 id="kpi-low">0</h3>
+        <p>⚠️ สต็อกต่ำ (≤ 5)</p>
+    </div>
+    <div class="inv-stat" style="background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);">
+        <h3 id="kpi-out">0</h3>
+        <p>🚫 หมดสต็อก</p>
     </div>
 </div>
 
-<style>
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
+<!-- ===== Toolbar: Search + Filters + Actions ===== -->
+<div class="inv-card">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end;">
+        <div style="flex: 1; min-width: 200px;">
+            <label class="form-label">ค้นหา</label>
+            <input type="text" id="inv-search" class="search-input" placeholder="พิมพ์ชื่อวัตถุดิบ..." oninput="applyFilters()">
+        </div>
+        <div style="min-width: 150px;">
+            <label class="form-label">สาขา</label>
+            <select id="inv-branch" class="form-select" onchange="applyFilters()">
+                <option value="">ทุกสาขา</option>
+            </select>
+        </div>
+        <div style="min-width: 140px;">
+            <label class="form-label">สถานะสต็อก</label>
+            <select id="inv-stock-status" class="form-select" onchange="applyFilters()">
+                <option value="">ทั้งหมด</option>
+                <option value="ok">🟢 มีสินค้า</option>
+                <option value="low">🟠 สต็อกต่ำ</option>
+                <option value="out">🔴 หมดสต็อก</option>
+            </select>
+        </div>
+        <div style="min-width: 120px;">
+            <label class="form-label">หน่วย</label>
+            <select id="inv-unit" class="form-select" onchange="applyFilters()">
+                <option value="">ทั้งหมด</option>
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+                <option value="ml">ml</option>
+                <option value="l">l</option>
+                <option value="pcs">pcs</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+            <button class="tab-btn" onclick="resetFilters()">🔄 ล้าง</button>
+            <button class="tab-btn" onclick="exportCSV()" style="border-color: #43a047; color: #43a047;">📥 Export CSV</button>
+            <button class="tab-btn active" onclick="openAddModal()" style="border-color: #D4AF37; background: #D4AF37; color: white;">+ เพิ่มวัตถุดิบ</button>
+        </div>
+    </div>
+</div>
 
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
+<!-- ===== Charts Row ===== -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
+    <div class="inv-card">
+        <div class="inv-section">📊 มูลค่าสต็อกแยกตามหน่วย</div>
+        <div id="chart-value-by-unit" style="padding: 10px 0;"></div>
+    </div>
+    <div class="inv-card">
+        <div class="inv-section">🏷️ วัตถุดิบราคาสูงสุด 10 อันดับ</div>
+        <div id="top-expensive-list">
+            <p style="text-align: center; color: #999; padding: 20px;">กำลังโหลด...</p>
+        </div>
+    </div>
+</div>
 
-    .modal-content {
-        background-color: white;
-        margin: 5% auto;
-        padding: 30px;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
+<!-- ===== Inventory Table ===== -->
+<div class="inv-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div class="inv-section" style="margin-bottom: 0;">📋 รายการวัตถุดิบ <span id="table-count" style="font-weight: normal; color: #999; font-size: 13px;">(0 รายการ)</span></div>
+        <div style="font-size: 12px; color: #999;">ดับเบิ้ลคลิกแถวเพื่อแก้ไข</div>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="inv-table" id="inv-table">
+            <thead>
+                <tr>
+                    <th class="th-sort" onclick="sortBy('name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">ชื่อวัตถุดิบ</th>
+                    <th class="th-sort" onclick="sortBy('branch_name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">สาขา</th>
+                    <th class="th-sort" onclick="sortBy('price')" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1B3A57;">ราคา/หน่วย</th>
+                    <th class="th-sort" onclick="sortBy('stock')" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">คงเหลือ</th>
+                    <th class="th-sort" onclick="sortBy('total_value')" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1B3A57;">มูลค่ารวม</th>
+                    <th class="th-sort" onclick="sortBy('unit')" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">หน่วย</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">สถานะ</th>
+                    <th class="th-sort" onclick="sortBy('updated_at')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">อัปเดตล่าสุด</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody id="inv-tbody">
+                <tr><td colspan="9" style="padding: 40px; text-align: center; color: #999;">กำลังโหลด...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-    .close {
-        color: var(--navy);
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-    }
+<!-- ===== Modal: Add/Edit ===== -->
+<div id="inv-modal" class="modal-backdrop">
+    <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 id="inv-modal-title">➕ เพิ่มวัตถุดิบ</h3>
+            <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+        <form id="inv-form" onsubmit="return saveIngredient(event)">
+            <input type="hidden" id="inv-id">
 
-    .close:hover {
-        color: var(--gold);
-    }
-</style>
+            <div class="form-row two">
+                <div>
+                    <label class="form-label">สาขา *</label>
+                    <select id="inv-branch-f" class="form-select" required>
+                        <option value="">เลือกสาขา</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">ชื่อวัตถุดิบ *</label>
+                    <input type="text" id="inv-name" class="price-input" required placeholder="เช่น พริกจินดา">
+                </div>
+            </div>
 
-<script>
-    const API_BASE = window.location.origin + '/api';
-    let currentIngredientId = null;
-    
-    // CSRF Token function
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    
-    // ฟังก์ชันโหลดวัตถุดิบ - เขียนแบบง่ายๆ
-    async function loadIngredients() {
-        try {
-            console.log('Starting loadIngredients...');
-            const response = await fetch(API_BASE + '/ingredients/');
-            console.log('Response status:', response.status);
-            const data = await response.json();
-            console.log('Data received:', data.length, 'items');
-            
-            const tbody = document.querySelector('#ingredients-table tbody');
-            if (!tbody) {
-                alert('Table body not found!');
-                return;
-            }
-            
-            // ลบข้อมูลเก่า
-            tbody.innerHTML = '';
-            
-            // ตรวจสอบว่าข้อมูลเป็น array
-            if (!Array.isArray(data)) {
-                alert('Data is not an array! Got: ' + typeof data);
-                return;
-            }
-            
-            // สร้างแถวใหม่ทีละรายการ
-            for (let i = 0; i < data.length; i++) {
-                const ing = data[i];
-                const row = document.createElement('tr');
-                
-                const td1 = document.createElement('td');
-                td1.textContent = ing.name || 'ไม่มีชื่อ';
-                row.appendChild(td1);
-                
-                const td2 = document.createElement('td');
-                td2.textContent = ing.branch_name || '-';
-                row.appendChild(td2);
-                
-                const td3 = document.createElement('td');
-                td3.textContent = '฿' + (ing.price || 0);
-                row.appendChild(td3);
-                
-                const td4 = document.createElement('td');
-                td4.textContent = ing.unit || '-';
-                row.appendChild(td4);
-                
-                const td5 = document.createElement('td');
-                td5.textContent = ing.stock || 0;
-                row.appendChild(td5);
-                
-                const td6 = document.createElement('td');
-                const editBtn = document.createElement('button');
-                editBtn.className = 'btn btn-primary edit-btn';
-                editBtn.textContent = 'Edit';
-                editBtn.setAttribute('data-id', ing.id);
-                editBtn.style.cursor = 'pointer';
-                td6.appendChild(editBtn);
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn btn-danger delete-btn';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.setAttribute('data-id', ing.id);
-                deleteBtn.style.cursor = 'pointer';
-                td6.appendChild(deleteBtn);
-                
-                row.appendChild(td6);
-                tbody.appendChild(row);
-            }
-            
-            console.log('Created', data.length, 'rows');
-            
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No ingredients found</td></tr>';
-            }
-        } catch (error) {
-            alert('Error loading ingredients: ' + error.message);
-            console.error('Error:', error);
-        }
-    }
-    
-    // ฟังก์ชันโหลดสาขา
-    async function loadBranches() {
-        try {
-            const response = await fetch(API_BASE + '/branches/');
-            const branches = await response.json();
-            const select = document.getElementById('branch_id');
-            if (!select) return;
-            
-            branches.forEach(branch => {
-                const option = document.createElement('option');
-                option.value = branch.id;
-                option.textContent = branch.name;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading branches:', error);
-        }
-    }
-    
-    // ฟังก์ชันเพิ่ม/แก้ไข
-    function openAddModal() {
-        currentIngredientId = null;
-        document.getElementById('ingredientForm').reset();
-        document.getElementById('ingredientModal').style.display = 'block';
-    }
-    
-    function closeModal() {
-        document.getElementById('ingredientModal').style.display = 'none';
-    }
-    
-    async function editIngredient(id) {
-        try {
-            console.log('Editing ingredient ID:', id);
-            const response = await fetch(API_BASE + '/ingredients/' + id + '/');
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
-            }
-            const ingredient = await response.json();
-            currentIngredientId = id;
-            document.getElementById('branch_id').value = ingredient.branch;
-            document.getElementById('name').value = ingredient.name;
-            document.getElementById('price').value = ingredient.price;
-            document.getElementById('unit').value = ingredient.unit;
-            document.getElementById('stock').value = ingredient.stock;
-            document.getElementById('ingredientModal').style.display = 'block';
-            console.log('Edit modal opened for ingredient:', ingredient.name);
-        } catch (error) {
-            console.error('Error loading ingredient:', error);
-            alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message);
-        }
-    }
-    
-    // ฟังก์ชันบันทึก (เพิ่ม/แก้ไข)
-    async function saveIngredient() {
-        const branchId = document.getElementById('branch_id').value;
-        const name = document.getElementById('name').value;
-        const price = document.getElementById('price').value;
-        const unit = document.getElementById('unit').value;
-        const stock = document.getElementById('stock').value;
-        
-        if (!branchId || !name || !price) {
-            alert('กรุณากรอกข้อมูลให้ครบถ้วน');
-            return;
-        }
-        
-        const data = {
-            branch: parseInt(branchId),
-            name: name,
-            price: parseFloat(price),
-            unit: unit,
-            stock: parseInt(stock) || 0
-        };
-        
-        try {
-            const url = currentIngredientId ? 
-                API_BASE + '/ingredients/' + currentIngredientId + '/' : 
-                API_BASE + '/ingredients/';
-            const method = currentIngredientId ? 'PUT' : 'POST';
-            
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify(data)
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(JSON.stringify(errorData) || 'HTTP error! status: ' + response.status);
-            }
-            
-            closeModal();
-            loadIngredients();
-            console.log('Ingredient saved successfully');
-        } catch (error) {
-            console.error('Error saving ingredient:', error);
-            alert('เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
-        }
-    }
-    
-    async function deleteIngredient(id) {
-        if (!confirm('Are you sure?')) return;
-        
-        try {
-            const response = await fetch(API_BASE + '/ingredients/' + id + '/', {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken')
-                }
-            });
-            
-            if (!response.ok) {
-                throw new Error('HTTP error! status: ' + response.status);
-            }
-            
-            loadIngredients();
-            console.log('Ingredient deleted successfully');
-        } catch (error) {
-            console.error('Error deleting ingredient:', error);
-            alert('เกิดข้อผิดพลาดในการลบ: ' + error.message);
-        }
-    }
-    
-    // เรียกใช้ทันทีที่ Script โหลด (ไม่ต้องรอ DOMContentLoaded)
-    console.log('Script loaded, calling functions...');
-    loadBranches();
-    loadIngredients();
+            <div class="form-row three">
+                <div>
+                    <label class="form-label">ราคา/หน่วย (฿) *</label>
+                    <input type="number" id="inv-price" class="price-input" step="0.01" min="0" required placeholder="0.00">
+                </div>
+                <div>
+                    <label class="form-label">หน่วย *</label>
+                    <select id="inv-unit-f" class="form-select" required>
+                        <option value="kg">กิโลกรัม (kg)</option>
+                        <option value="g">กรัม (g)</option>
+                        <option value="ml">มิลลิลิตร (ml)</option>
+                        <option value="l">ลิตร (l)</option>
+                        <option value="pcs">ชิ้น (pcs)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">คงเหลือ *</label>
+                    <input type="number" id="inv-stock" class="price-input" min="0" required placeholder="0">
+                </div>
+            </div>
 
-    // Event delegation for edit/delete buttons (iOS Safari fix)
-    document.querySelector('#ingredients-table tbody').addEventListener('click', function(e) {
-        const editBtn = e.target.closest('.edit-btn');
-        if (editBtn) {
-            const id = editBtn.getAttribute('data-id');
-            editIngredient(parseInt(id));
-            return;
-        }
-        const deleteBtn = e.target.closest('.delete-btn');
-        if (deleteBtn) {
-            const id = deleteBtn.getAttribute('data-id');
-            deleteIngredient(parseInt(id));
-            return;
-        }
-    });
-</script>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;">
+                <button type="button" class="tab-btn" onclick="closeModal()">ยกเลิก</button>
+                <button type="submit" class="tab-btn active" style="border-color: #D4AF37; background: #D4AF37; color: white;">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
+{% block extra_js %}
+<script>
+const API = window.location.origin + '/api';
+let allItems = [], currentId = null, sortCol = 'name', sortAsc = true;
+const fmt = n => '฿' + parseFloat(n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const getCookie = name => { let v=null; if(document.cookie) document.cookie.split(';').forEach(c=>{const[k,va]=c.trim().split('='); if(k===name) v=va; }); return v; };
+
+document.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+    await loadBranches();
+    await loadItems();
+}
+
+async function loadBranches() {
+    try {
+        const r = await fetch(API+'/branches/');
+        const branches = await r.json();
+        ['inv-branch','inv-branch-f'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            sel.innerHTML = '<option value="">เลือกสาขา</option>' + (id==='inv-branch' ? '<option value="">ทุกสาขา</option>' : '<option value="">เลือกสาขา</option>');
+            branches.forEach(b => { sel.innerHTML += `<option value="${b.id}">${b.name}</option>`; });
+        });
+    } catch(e) { console.error('loadBranches:', e); }
+}
+
+async function loadItems() {
+    try {
+        const r = await fetch(API+'/ingredients/');
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        allItems = await r.json();
+        applyFilters();
+    } catch(e) {
+        console.error('loadItems:', e);
+        document.getElementById('inv-tbody').innerHTML = '<tr><td colspan="9" style="padding:30px;text-align:center;color:#dc3545;">เกิดข้อผิดพลาดในการโหลด</td></tr>';
+    }
+}
+
+function stockStatus(stock) {
+    if (stock <= 0) return {cls:'out', label:'หมดสต็อก', color:'#c62828'};
+    if (stock <= 5) return {cls:'low', label:'สต็อกต่ำ', color:'#e65100'};
+    return {cls:'ok', label:'ปกติ', color:'#2e7d32'};
+}
+
+function applyFilters() {
+    const search = (document.getElementById('inv-search').value || '').toLowerCase();
+    const branch = document.getElementById('inv-branch').value;
+    const stockSt = document.getElementById('inv-stock-status').value;
+    const unit = document.getElementById('inv-unit').value;
+
+    let filtered = allItems.filter(i => {
+        if (search && !i.name.toLowerCase().includes(search)) return false;
+        if (branch && i.branch != branch) return false;
+        if (unit && i.unit != unit) return false;
+        if (stockSt) {
+            const s = stockStatus(i.stock);
+            if (stockSt !== s.cls) return false;
+        }
+        return true;
+    });
+
+    // Sort
+    filtered.sort((a,b) => {
+        let va, vb;
+        if (sortCol === 'total_value') { va = (a.price || 0) * (a.stock || 0); vb = (b.price || 0) * (b.stock || 0); }
+        else if (sortCol === 'price' || sortCol === 'stock') { va = parseFloat(a[sortCol]) || 0; vb = parseFloat(b[sortCol]) || 0; }
+        else { va = (a[sortCol] || '').toLowerCase(); vb = (b[sortCol] || '').toLowerCase(); }
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+    });
+
+    updateKPIs(allItems);
+    renderTable(filtered);
+    renderCharts(allItems);
+}
+
+function sortBy(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    applyFilters();
+}
+
+function updateKPIs(items) {
+    const total = items.length;
+    const val = items.reduce((s,i) => s + (parseFloat(i.price)||0) * (parseInt(i.stock)||0), 0);
+    const low = items.filter(i => i.stock > 0 && parseInt(i.stock) <= 5).length;
+    const out = items.filter(i => parseInt(i.stock) <= 0).length;
+    document.getElementById('kpi-total').textContent = total.toLocaleString();
+    document.getElementById('kpi-value').textContent = fmt(val);
+    document.getElementById('kpi-low').textContent = low;
+    document.getElementById('kpi-out').textContent = out;
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('inv-tbody');
+    document.getElementById('table-count').textContent = `(${items.length} รายการ)`;
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="9" style="padding:40px;text-align:center;color:#999;">ไม่พบวัตถุดิบ</td></tr>'; return; }
+
+    const unitLabel = {kg:'กก.', g:'กรัม', ml:'มล.', l:'ลิตร', pcs:'ชิ้น'};
+
+    tbody.innerHTML = items.map(i => {
+        const s = stockStatus(i.stock);
+        const tv = (parseFloat(i.price)||0) * (parseInt(i.stock)||0);
+        const d = i.updated_at ? new Date(i.updated_at).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'2-digit'}) : '-';
+        return `<tr ondblclick="editIngredient(${i.id})" style="cursor:pointer;">
+            <td style="font-weight:500;">${i.name}</td>
+            <td>${i.branch_name || '-'}</td>
+            <td style="text-align:right;">${fmt(i.price)}</td>
+            <td style="text-align:center;font-weight:600;color:${s.color};">${i.stock || 0}</td>
+            <td style="text-align:right;font-weight:600;color:#2e7d32;">${fmt(tv)}</td>
+            <td style="text-align:center;"><span class="unit-badge">${unitLabel[i.unit] || i.unit}</span></td>
+            <td style="text-align:center;"><span class="stock-badge stock-${s.cls}">${s.label}</span></td>
+            <td><small style="color:#999;">${d}</small></td>
+            <td style="text-align:center;">
+                <button onclick="editIngredient(${i.id})" style="background:none;border:none;cursor:pointer;font-size:15px;" title="แก้ไข">✏️</button>
+                <button onclick="deleteIngredient(${i.id})" style="background:none;border:none;cursor:pointer;font-size:15px;" title="ลบ">🗑️</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderCharts(items) {
+    const unitValue = {};
+    items.forEach(i => {
+        const u = i.unit || '?';
+        unitValue[u] = (unitValue[u] || 0) + (parseFloat(i.price)||0) * (parseInt(i.stock)||0);
+    });
+    const totalVal = Object.values(unitValue).reduce((a,b) => a+b, 0) || 1;
+    const colors = {'kg':'#667eea','g':'#f093fb','ml':'#4facfe','l':'#43e97b','pcs':'#fa709a','?':'#999'};
+    const unitLabel = {kg:'กก.', g:'กรัม', ml:'มล.', l:'ลิตร', pcs:'ชิ้น', '?':'อื่นๆ'};
+    const box = document.getElementById('chart-value-by-unit');
+    if (!box) return;
+    box.innerHTML = Object.entries(unitValue).sort((a,b)=>b[1]-a[1]).map(([u,v]) => {
+        const pct = ((v/totalVal)*100).toFixed(1);
+        const c = colors[u] || '#666';
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="width:30px;font-size:11px;font-weight:600;color:#555;">${unitLabel[u]||u}</span>
+            <div class="bar-chart" style="flex:1;"><div class="bar-chart-fill" style="width:${pct}%;background:${c};"></div><span class="bar-chart-label">${pct}%</span></div>
+            <span style="width:90px;font-size:11px;color:#666;text-align:right;">${fmt(v)}</span>
+        </div>`;
+    }).join('');
+
+    // Top 10 expensive
+    const top = [...items].filter(i => parseFloat(i.price) > 0).sort((a,b)=>parseFloat(b.price)-parseFloat(a.price)).slice(0,10);
+    const tbox = document.getElementById('top-expensive-list');
+    if (!tbox) return;
+    if (!top.length) { tbox.innerHTML = '<p style="text-align:center;color:#999;padding:15px;">ไม่มีข้อมูล</p>'; return; }
+    tbox.innerHTML = top.map((i,idx) => {
+        const rc = idx<1?'top-rank-1':idx<2?'top-rank-2':idx<3?'top-rank-3':'top-rank-other';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+            <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink 0;${idx<3?`background:linear-gradient(135deg,${idx===0?'#FFD700,#FFA000':idx===1?'#C0C0C0,#9E9E9E':'#CD7F32,#8D6E63'});color:white;`: 'background:#ECEFF1;color:#546E7A;'}">${idx+1}</div>
+            <div style="flex:1;font-weight:500;">${i.name}</div>
+            <div style="text-align:right;font-weight:700;color:#2e7d32;">${fmt(i.price)}<br><small style="color:#999;font-weight:400;">/${i.unit}</small></div>
+        </div>`;
+    }).join('');
+}
+
+// ===== Modal & CRUD =====
+function openAddModal() {
+    currentId = null;
+    document.getElementById('inv-modal-title').textContent = '➕ เพิ่มวัตถุดิบ';
+    document.getElementById('inv-form').reset();
+    document.getElementById('inv-id').value = '';
+    document.getElementById('inv-modal').style.display = 'block';
+}
+
+async function editIngredient(id) {
+    try {
+        const r = await fetch(API+'/ingredients/'+id+'/');
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const d = await r.json();
+        currentId = id;
+        document.getElementById('inv-modal-title').textContent = '✏️ แก้ไขวัตถุดิบ — '+d.name;
+        document.getElementById('inv-id').value = d.id;
+        document.getElementById('inv-branch-f').value = d.branch;
+        document.getElementById('inv-name').value = d.name;
+        document.getElementById('inv-price').value = d.price;
+        document.getElementById('inv-unit-f').value = d.unit;
+        document.getElementById('inv-stock').value = d.stock;
+        document.getElementById('inv-modal').style.display = 'block';
+    } catch(e) { console.error('editIngredient:', e); alert('เกิดข้อผิดพลาด'); }
+}
+
+async function saveIngredient(e) {
+    e.preventDefault();
+    const data = {
+        branch: parseInt(document.getElementById('inv-branch-f').value),
+        name: document.getElementById('inv-name').value.trim(),
+        price: parseFloat(document.getElementById('inv-price').value),
+        unit: document.getElementById('inv-unit-f').value,
+        stock: parseInt(document.getElementById('inv-stock').value) || 0,
+    };
+    if (!data.branch || !data.name || isNaN(data.price)) { alert('กรุณากรอกข้อมูลให้ครบ'); return false; }
+
+    try {
+        const method = currentId ? 'PUT' : 'POST';
+        const url = currentId ? API+'/ingredients/'+currentId+'/' : API+'/ingredients/';
+        const r = await fetch(url, { method, headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body: JSON.stringify(data) });
+        if (!r.ok) { const err = await r.json(); throw new Error(JSON.stringify(err)); }
+        closeModal();
+        await loadItems();
+    } catch(e) { console.error('saveIngredient:', e); alert('บันทึกไม่สำเร็จ: '+e.message); }
+    return false;
+}
+
+async function deleteIngredient(id) {
+    if (!confirm('ยืนยันการลบวัตถุดิบ #' + id + '?')) return;
+    try {
+        const r = await fetch(API+'/ingredients/'+id+'/', { method:'DELETE', headers: {'X-CSRFToken':getCookie('csrftoken')} });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        await loadItems();
+    } catch(e) { console.error('deleteIngredient:', e); alert('ลบไม่สำเร็จ'); }
+}
+
+function closeModal() { document.getElementById('inv-modal').style.display = 'none'; }
+
+function resetFilters() {
+    document.getElementById('inv-search').value = '';
+    document.getElementById('inv-branch').value = '';
+    document.getElementById('inv-stock-status').value = '';
+    document.getElementById('inv-unit').value = '';
+    applyFilters();
+}
+
+function exportCSV() {
+    const qs = new URLSearchParams();
+    if (document.getElementById('inv-branch').value) qs.set('branch_id', document.getElementById('inv-branch').value);
+    window.location.href = API+'/ingredients/?'+qs.toString();
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// Close modal on backdrop click
+document.getElementById('inv-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

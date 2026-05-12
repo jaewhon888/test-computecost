@@ -34,11 +34,17 @@ class RecipeItemSerializer(serializers.ModelSerializer):
 
 class RecipeSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
-    items = RecipeItemSerializer(many=True, read_only=True)  # ✅ ลบ source='items'
+    items = RecipeItemSerializer(many=True, read_only=True)
+    menus = serializers.SerializerMethodField()
     
     class Meta:
         model = Recipe
-        fields = ['id', 'branch', 'branch_name', 'name', 'description', 'items', 'created_at', 'updated_at']
+        fields = ['id', 'branch', 'branch_name', 'name', 'description', 'items', 'menus', 'created_at', 'updated_at']
+    
+    def get_menus(self, obj):
+        """Return list of menu IDs and names linked to this recipe"""
+        menus = obj.menu_set.all()
+        return [{'id': m.id, 'name': m.name} for m in menus]
 
 class MenuSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
