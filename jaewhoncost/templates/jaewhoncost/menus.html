@@ -1,338 +1,1024 @@
 {% extends 'jaewhoncost/base.html' %}
+{% load static %}
 
-{% block title %}Menus - Restaurant Management{% endblock %}
+{% block title %}🍽️ จัดการเมนู (Menus Management) - Restaurant Management{% endblock %}
+{% block page_title %}🍽️ จัดการเมนู (Menus Management){% endblock %}
 
-{% block page_title %}🍽️ เมนู (Menus Management){% endblock %}
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════
+   BASE & ANIMATIONS
+   ═══════════════════════════════════════════ */
+* { box-sizing: border-box; }
+body { font-family: 'Prompt', sans-serif; }
+
+@keyframes fadeInUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideInRight { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+
+.fade-in { animation: fadeInUp 0.35s ease-out both; }
+.fade-in-1 { animation-delay: 0.04s; }
+.fade-in-2 { animation-delay: 0.08s; }
+.fade-in-3 { animation-delay: 0.12s; }
+.fade-in-4 { animation-delay: 0.16s; }
+
+/* ═══════════════════════════════════════════
+   TOAST
+   ═══════════════════════════════════════════ */
+#toast-container {
+  position: fixed; top: 16px; right: 16px; z-index: 10001;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  padding: 12px 18px; border-radius: 12px; color: white; font-size: 13px; font-weight: 500;
+  pointer-events: auto; box-shadow: 0 6px 24px rgba(0,0,0,0.14);
+  animation: slideInRight 0.3s ease-out; max-width: 360px; display: flex; align-items: center; gap: 8px;
+}
+.toast.success { background: linear-gradient(135deg, #43e97b, #38f9d7); color: #1a5c2a; }
+.toast.error { background: linear-gradient(135deg, #f44336, #e91e63); }
+.toast.info { background: linear-gradient(135deg, #667eea, #764ba2); }
+.toast.warning { background: linear-gradient(135deg, #ff9800, #f57c00); }
+
+/* ═══════════════════════════════════════════
+   KPI CARDS
+   ═══════════════════════════════════════════ */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.kpi-card {
+  padding: 18px; border-radius: 14px; color: white; position: relative; overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08); transition: transform 0.15s, box-shadow 0.15s;
+}
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.12); }
+.kpi-card::after {
+  content: ''; position: absolute; top: -40%; right: -40%; width: 80%; height: 100%;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+}
+.kpi-icon { font-size: 24px; margin-bottom: 4px; position: relative; z-index: 1; }
+.kpi-value { font-size: 26px; font-weight: 700; margin: 0; position: relative; z-index: 1; }
+.kpi-label { font-size: 11px; margin: 2px 0 0; opacity: 0.9; position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════
+   CARD PANELS
+   ═══════════════════════════════════════════ */
+.card {
+  background: white; border-radius: 14px; padding: 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 18px; border: 1px solid #f0f0f0;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 10px; margin-bottom: 14px;
+}
+.card-title { font-size: 15px; font-weight: 600; color: #1B3A57; margin: 0; display: flex; align-items: center; gap: 7px; }
+
+/* ═══════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════ */
+.btn {
+  padding: 8px 15px; border: 2px solid transparent; border-radius: 9px;
+  cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'Prompt', sans-serif;
+  transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+.btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 7px; }
+.btn-primary { background: linear-gradient(135deg, #D4AF37, #e6c44d); color: white; border-color: #D4AF37; }
+.btn-primary:hover { box-shadow: 0 3px 10px rgba(212,175,55,0.35); transform: translateY(-1px); }
+.btn-secondary { background: white; color: #667eea; border-color: #667eea; }
+.btn-secondary:hover { background: #667eea; color: white; }
+.btn-success { background: white; color: #2e7d32; border-color: #43e97b; }
+.btn-success:hover { background: #43e97b; color: white; }
+.btn-danger { background: white; color: #f44336; border-color: #f44336; }
+.btn-danger:hover { background: #f44336; color: white; }
+.btn-neutral { background: white; color: #555; border-color: #ddd; }
+.btn-neutral:hover { background: #f5f5f5; }
+
+/* ═══════════════════════════════════════════
+   FORM ELEMENTS
+   ═══════════════════════════════════════════ */
+.form-label { font-size: 11px; font-weight: 600; color: #666; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px; }
+.form-select, .form-input {
+  width: 100%; padding: 9px 11px; border: 2px solid #e8e8e8; border-radius: 9px;
+  font-size: 13px; font-family: 'Prompt', sans-serif; transition: border-color 0.15s; background: white;
+}
+.form-select:focus, .form-input:focus { border-color: #D4AF37; outline: none; box-shadow: 0 0 0 3px rgba(212,175,55,0.1); }
+.search-input {
+  width: 100%; padding: 9px 11px 9px 34px; border: 2px solid #e8e8e8; border-radius: 9px;
+  font-size: 13px; font-family: 'Prompt', sans-serif; transition: border-color 0.15s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 10px center;
+}
+.search-input:focus { border-color: #D4AF37; outline: none; }
+
+/* ═══════════════════════════════════════════
+   TOOLBAR
+   ═══════════════════════════════════════════ */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.toolbar > * { min-width: 150px; }
+
+/* ═══════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════ */
+.table-wrap { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table thead tr { background: #f8f9fa; }
+.data-table th {
+  padding: 10px 11px; text-align: left; font-weight: 600; color: #1B3A57;
+  border-bottom: 2px solid #e0e0e0; cursor: pointer; user-select: none; white-space: nowrap;
+}
+.data-table th:hover { color: #D4AF37; }
+.data-table th::after { content: ' ⇅'; font-size: 10px; color: #ccc; }
+.data-table td { padding: 10px 11px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.data-table tbody tr { transition: background 0.12s; }
+.data-table tbody tr:hover { background: #fafafa; }
+.data-table tfoot tr { font-weight: 700; background: #f0f0f0; }
+.data-table tfoot td { padding: 12px; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
+  border-radius: 14px; font-size: 11px; font-weight: 600;
+}
+.badge-good { background: #e8f5e9; color: #2e7d32; }
+.badge-warn { background: #fff3e0; color: #e65100; }
+.badge-danger { background: #fce4ec; color: #c62828; }
+.badge-info { background: #e3f2fd; color: #1565c0; }
+
+/* ═══════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════ */
+.menus-modal {
+  display: none !important;
+  position: fixed !important;
+  z-index: 10000 !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0,0,0,0.4) !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+.menus-modal.menus-modal-show {
+  display: flex !important;
+}
+.modal-box {
+  background: white; margin: 4% auto; padding: 0; border-radius: 16px;
+  width: 94%; max-width: 580px; box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  animation: fadeInUp 0.3s ease-out; overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 1px solid #f0f0f0; background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+}
+.modal-header h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.modal-close { font-size: 22px; cursor: pointer; opacity: 0.8; background: none; border: none; color: white; }
+.modal-close:hover { opacity: 1; }
+.modal-body { padding: 22px; }
+.modal-footer {
+  display: flex; gap: 10px; justify-content: flex-end; padding: 14px 22px;
+  border-top: 1px solid #f0f0f0; background: #fafafa;
+}
+.modal-body .form-group { margin-bottom: 14px; }
+.modal-body label { font-size: 12px; font-weight: 600; color: #444; display: block; margin-bottom: 6px; }
+
+/* ═══════════════════════════════════════════
+   RECIPE PREVIEW INLINE EXPAND
+   ═══════════════════════════════════════════ */
+.recipe-preview { display: none; background: #f8f9fa; border-radius: 8px; padding: 10px; margin-top: 8px; }
+.recipe-preview table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.recipe-preview th { padding: 5px; text-align: left; color: #666; font-weight: 600; background: #f0f0f0; }
+.recipe-preview td { padding: 5px; border-bottom: 1px solid #e8e8e8; }
+
+/* ═══════════════════════════════════════════
+   CHECKBOX
+   ═══════════════════════════════════════════ */
+.bulk-checkbox { width: 18px; height: 18px; accent-color: #D4AF37; cursor: pointer; }
+.bulk-actions-bar {
+  display: none; align-items: center; gap: 10px; padding: 10px 14px;
+  background: #e8eaf6; border-radius: 10px; margin-bottom: 12px;
+}
+.bulk-actions-bar.show { display: flex; }
+
+/* ═══════════════════════════════════════════
+   PAGINATION
+   ═══════════════════════════════════════════ */
+.pagination {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0;
+}
+.pagination-info { font-size: 12px; color: #888; }
+.pagination-btns { display: flex; gap: 4px; }
+.page-btn {
+  width: 32px; height: 32px; border: 1px solid #ddd; border-radius: 7px; background: white;
+  cursor: pointer; font-size: 12px; font-family: 'Prompt', sans-serif; text-align: center;
+  line-height: 30px; transition: all 0.12s;
+}
+.page-btn:hover { background: #D4AF37; color: white; border-color: #D4AF37; }
+.page-btn.active { background: #D4AF37; color: white; border-color: #D4AF37; font-weight: 600; }
+.per-page-select { font-size: 12px; padding: 4px 6px; border: 1px solid #ddd; border-radius: 6px; font-family: 'Prompt', sans-serif; }
+
+/* ═══════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════ */
+.empty-state { text-align: center; padding: 50px 20px; color: #999; }
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state p { font-size: 14px; }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .toolbar { flex-direction: column; }
+  .toolbar > * { min-width: 100%; }
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h3>🍽️ เมนูทั้งหมด</h3>
-    <button class="btn btn-primary" onclick="openAddModal()">+ เพิ่มเมนู</button>
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════
+     KPI SUMMARY CARDS
+     ═══════════════════════════════════════════ -->
+<div class="kpi-grid">
+  <div class="kpi-card fade-in fade-in-1" style="background: linear-gradient(135deg, #D4AF37, #e6c44d);">
+    <div class="kpi-icon">🍽️</div>
+    <div class="kpi-value" id="kpi-total">0</div>
+    <div class="kpi-label">เมนูทั้งหมด</div>
+  </div>
+  <div class="kpi-card fade-in fade-in-2" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+    <div class="kpi-icon">✅</div>
+    <div class="kpi-value" id="kpi-with-recipe">0</div>
+    <div class="kpi-label">มีสูตรอาหาร</div>
+  </div>
+  <div class="kpi-card fade-in fade-in-3" style="background: linear-gradient(135deg, #f44336, #ff6b6b);">
+    <div class="kpi-icon">⚠️</div>
+    <div class="kpi-value" id="kpi-no-recipe">0</div>
+    <div class="kpi-label">ไม่มีสูตร</div>
+  </div>
+  <div class="kpi-card fade-in fade-in-4" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+    <div class="kpi-icon">💰</div>
+    <div class="kpi-value" id="kpi-avg-price">฿0</div>
+    <div class="kpi-label">ราคาเฉลี่ย</div>
+  </div>
 </div>
 
-<div class="card">
-    <table id="menus-table">
-        <thead>
-            <tr>
-                <th>ชื่อเมนู</th>
-                <th>สาขา</th>
-                <th>สูตรอาหาร</th>
-                <th>ราคา</th>
-                <th>คำอธิบาย</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr><td colspan="6" style="text-align: center;">กำลังโหลด...</td></tr>
-        </tbody>
-    </table>
-</div>
-
-<!-- Add/Edit Modal -->
-<div id="menuModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2 id="modalTitle">เพิ่มเมนู</h2>
-        <form id="menuForm">
-            <input type="hidden" id="menuId">
-            
-            <div class="form-group">
-                <label>สาขา:</label>
-                <select id="branchSelect" class="form-control" onchange="loadRecipesByBranch()" required>
-                    <option value="">-- เลือกสาขา --</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>สูตรอาหาร:</label>
-                <select id="recipeSelect" class="form-control">
-                    <option value="">-- เลือกสูตรอาหาร --</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>ชื่อเมนู:</label>
-                <input type="text" id="menuName" class="form-control" required>
-            </div>
-            
-            <div class="form-group">
-                <label>ราคา:</label>
-                <input type="number" id="menuPrice" class="form-control" step="0.01" required>
-            </div>
-            
-            <div class="form-group">
-                <label>คำอธิบาย:</label>
-                <textarea id="menuDescription" rows="4" class="form-control"></textarea>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">บันทึก</button>
-            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
-        </form>
+<!-- ═══════════════════════════════════════════
+     TOOLBAR: Branch Filter + Search + Add
+     ═══════════════════════════════════════════ -->
+<div class="card fade-in">
+  <div class="toolbar" style="margin-bottom: 14px;">
+    <div>
+      <label class="form-label">🏢 สาขา</label>
+      <select id="filter-branch" class="form-select" onchange="applyFilters()">
+        <option value="">ทั้งหมด</option>
+      </select>
     </div>
+    <div>
+      <label class="form-label">📋 สถานะสูตร</label>
+      <select id="filter-status" class="form-select" onchange="applyFilters()">
+        <option value="">ทั้งหมด</option>
+        <option value="has-recipe">✅ มีสูตร</option>
+        <option value="no-recipe">⚠️ ไม่มีสูตร</option>
+      </select>
+    </div>
+    <div style="flex:1; min-width: 200px;">
+      <label class="form-label">🔍 ค้นหา</label>
+      <input type="text" id="filter-search" class="search-input" placeholder="ชื่อเมนู, สูตร, สาขา..." oninput="applyFilters()">
+    </div>
+    <div style="margin-left: auto; align-self: end;">
+      <button class="btn btn-primary" onclick="openAddModal()">➕ เพิ่มเมนู</button>
+    </div>
+  </div>
+
+  <!-- Bulk Actions Bar -->
+  <div class="bulk-actions-bar" id="bulk-bar">
+    <span style="font-size:13px; color:#333;">เลือก <strong id="bulk-count">0</strong> รายการ</span>
+    <button class="btn btn-sm btn-danger" onclick="bulkDelete()">🗑️ ลบบulk</button>
+    <button class="btn btn-sm btn-neutral" onclick="clearBulkSelection()">✖️ ยกเลิก</button>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:36px; cursor:default;">
+            <input type="checkbox" id="select-all" class="bulk-checkbox" onchange="toggleSelectAll()" style="cursor:pointer;">
+          </th>
+          <th onclick="sortMenus('name')">ชื่อเมนู</th>
+          <th onclick="sortMenus('branch_name')">สาขา</th>
+          <th onclick="sortMenus('recipe_name')">สูตรอาหาร</th>
+          <th onclick="sortMenus('price')">ราคา</th>
+          <th onclick="sortMenus('food_cost_percent')">Food Cost %</th>
+          <th>สถานะ</th>
+          <th style="cursor:default; width: 100px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="menus-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- EMPTY STATE -->
+  <div id="empty-state" class="empty-state" style="display:none;">
+    <div class="empty-icon">📋</div>
+    <p>ยังไม่มีเมนู คลิก "เพิ่มเมนู" เพื่อเริ่มสร้าง</p>
+  </div>
+
+  <!-- PAGINATION -->
+  <div class="pagination" id="pagination-section">
+    <div class="pagination-info">
+      แสดง <span id="pg-showing">0</span> / <span id="pg-total">0</span> เมนู
+      &nbsp;&nbsp;
+      <select class="per-page-select" id="per-page" onchange="changePerPage()">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="100">ทั้งหมด</option>
+      </select> ต่อหน้า
+    </div>
+    <div class="pagination-btns" id="pagination-btns"></div>
+  </div>
 </div>
 
-<style>
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-    
-    .modal-content {
-        background-color: white;
-        margin: 5% auto;
-        padding: 30px;
-        border-radius: 8px;
-        width: 90%;
-        max-width: 500px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        position: relative;
-    }
-    
-    .close {
-        color: #333;
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
-        cursor: pointer;
-        position: absolute;
-        right: 20px;
-        top: 15px;
-    }
-    
-    .close:hover {
-        color: #000;
-    }
-    
-    .form-group {
-        margin-bottom: 15px;
-    }
-    
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-    }
-</style>
+<!-- ═══════════════════════════════════════════
+     ADD/EDIT MODAL
+     ═══════════════════════════════════════════ -->
+<div class="menus-modal" id="modal-overlay">
+  <div class="modal-box" id="menu-modal">
+    <div class="modal-header">
+      <h2 id="modal-title">➕ เพิ่มเมนูใหม่</h2>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="menu-id">
 
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group">
+          <label>🏢 สาขา</label>
+          <select id="menu-branch" class="form-select" required onchange="loadRecipesByBranch()">
+            <option value="">-- เลือกสาขา --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>📄 สูตรอาหาร (ไม่บังคับ)</label>
+          <select id="menu-recipe" class="form-select">
+            <option value="">-- ไม่มี --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>🍽️ ชื่อเมนู</label>
+        <input type="text" id="menu-name" class="form-input" required placeholder="เช่น ข้าวผัดกระเพราหมู">
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+        <div class="form-group">
+          <label>💰 ราคา (บาท)</label>
+          <input type="number" id="menu-price" class="form-input" required step="0.01" min="0" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label>📊 Food Cost % (อัตโนมัติ)</label>
+          <input type="text" id="menu-fc-preview" class="form-input" readonly placeholder="เลือกสูตรแล้วคำนวณ"
+                 style="background:#fafafa; cursor:not-allowed;">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>📝 คำอธิบาย</label>
+        <textarea id="menu-description" class="form-input" rows="3" placeholder="รายละเอียดเพิ่มเติม..."></textarea>
+      </div>
+
+      <!-- Recipe ingredients preview -->
+      <div id="recipe-preview-section" style="display:none;">
+        <div style="font-size:12px; font-weight:600; color:#555; margin-bottom:6px;">📦 วัตถุดิบในสูตร:</div>
+        <div class="recipe-preview" id="recipe-preview" style="display:block; max-height: 200px; overflow-y: auto;">
+          <table>
+            <thead><tr><th>วัตถุดิบ</th><th class="text-right">จำนวน</th><th class="text-right">ต้นทุน</th></tr></thead>
+            <tbody id="recipe-preview-body"></tbody>
+            <tfoot><tr style="font-weight:700; background:#f0f0f0;">
+              <td>รวม</td><td class="text-right"></td><td class="text-right" id="recipe-preview-total">-</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveMenu()">💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     DETAIL MODAL (Quick View)
+     ═══════════════════════════════════════════ -->
+<div class="menus-modal" id="detail-overlay">
+  <div class="modal-box" id="detail-modal" style="max-width: 500px;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #43e97b, #38f9d7); color: #1a5c2a;">
+      <h2>📋 รายละเอียดเมนู</h2>
+      <button class="modal-close" onclick="closeDetailModal()" style="color:#1a5c2a;">&times;</button>
+    </div>
+    <div class="modal-body" id="detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeDetailModal()">ปิด</button>
+      <button class="btn btn-primary" id="detail-edit-btn">✏️ แก้ไข</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-const API_BASE = window.location.origin + '/api';
-let currentMenuId = null;
-let allRecipes = [];
+const API = window.location.origin + '/api';
+let allMenus = [], allBranches = [], allRecipes = [], recipeIngredientsCache = {};
+let currentEditId = null;
+let selectedIds = new Set();
+let sortCol = 'name', sortAsc = true;
+let currentPage = 1, perPage = 20;
 
-// CSRF Token helper
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
+const fmt = n => {
+  if (n == null || isNaN(n)) return '฿0.00';
+  return '฿' + parseFloat(n).toLocaleString('th-TH', {minimumFractionDigits:2, maximumFractionDigits:2});
+};
+const getCookie = name => {
+  let v=null; if(document.cookie) document.cookie.split(';').forEach(c => {const[k,va]=c.trim().split('='); if(k===name) v=va; }); return v;
+};
+
+document.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+  const [rMenus, rBranches, rRecipes] = await Promise.all([
+    fetch(API+'/menus/'), fetch(API+'/branches/'), fetch(API+'/recipes/')
+  ]);
+  allMenus = await rMenus.json();
+  allBranches = await rBranches.json();
+  allRecipes = await rRecipes.json();
+
+  // Cache recipe ingredients
+  allRecipes.forEach(r => {
+    if (r.items) recipeIngredientsCache[r.id] = r.items;
+  });
+
+  // Populate branch filter
+  const sel = document.getElementById('filter-branch');
+  const modalSel = document.getElementById('menu-branch');
+  allBranches.forEach(b => {
+    sel.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    modalSel.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+  });
+
+  updateKPIs();
+  applyFilters();
+  toast('info', `โหลด ${allMenus.length} เมนู, ${allRecipes.length} สูตร เสร็จแล้วคะ`);
+}
+
+// ═══════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════
+function updateKPIs() {
+  const total = allMenus.length;
+  const withRecipe = allMenus.filter(m => m.recipe).length;
+  const without = total - withRecipe;
+  const avgPrice = total > 0 ? (allMenus.reduce((s,m) => s + (parseFloat(m.price)||0), 0) / total) : 0;
+
+  document.getElementById('kpi-total').textContent = total;
+  document.getElementById('kpi-with-recipe').textContent = withRecipe;
+  document.getElementById('kpi-no-recipe').textContent = without;
+  document.getElementById('kpi-avg-price').textContent = fmt(avgPrice);
+}
+
+// ═══════════════════════════════════════════
+// FILTERS + SORT + PAGINATION
+// ═══════════════════════════════════════════
+function getFiltered() {
+  const branch = document.getElementById('filter-branch').value;
+  const status = document.getElementById('filter-status').value;
+  const search = document.getElementById('filter-search').value.toLowerCase();
+
+  let filtered = [...allMenus];
+  if (branch) filtered = filtered.filter(m => m.branch == branch);
+  if (status === 'has-recipe') filtered = filtered.filter(m => m.recipe);
+  if (status === 'no-recipe') filtered = filtered.filter(m => !m.recipe);
+  if (search) {
+    filtered = filtered.filter(m =>
+      (m.name||'').toLowerCase().includes(search) ||
+      (m.recipe_name||'').toLowerCase().includes(search) ||
+      (m.branch_name||'').toLowerCase().includes(search)
+    );
+  }
+
+  filtered.sort((a,b) => {
+    let va, vb;
+    if (sortCol === 'price') { va = parseFloat(a.price)||0; vb = parseFloat(b.price)||0; }
+    else if (sortCol === 'food_cost_percent') { va = a.food_cost_percent || 999; vb = b.food_cost_percent || 999; }
+    else { va = (a[sortCol]||'').toString(); vb = (b[sortCol]||'').toString(); }
+    if (typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortAsc ? va - vb : vb - va;
+  });
+
+  return filtered;
+}
+
+function applyFilters() {
+  currentPage = 1;
+  renderTable();
+}
+
+function sortMenus(col) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  renderTable();
+}
+
+function renderTable() {
+  const filtered = getFiltered();
+  const tbody = document.getElementById('menus-tbody');
+  const empty = document.getElementById('empty-state');
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('pagination-section').style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  document.getElementById('pagination-section').style.display = 'flex';
+
+  // Pagination
+  const total = filtered.length;
+  const maxPerPage = perPage >= 1000 ? total : perPage;
+  const totalPages = Math.ceil(total / maxPerPage);
+  const start = (currentPage - 1) * maxPerPage;
+  const pageItems = filtered.slice(start, start + maxPerPage);
+
+  document.getElementById('pg-total').textContent = total;
+  document.getElementById('pg-showing').textContent = `${start + 1}-${Math.min(start + maxPerPage, total)}`;
+
+  // Render rows
+  tbody.innerHTML = pageItems.map(m => {
+    const hasRecipe = m.recipe;
+    const fcp = m.food_cost_percent || null;
+    let fcBadge = '';
+    if (fcp !== null) {
+      if (fcp <= 30) fcBadge = `<span class="status-badge badge-good">🟢 ${fcp.toFixed(1)}%</span>`;
+      else if (fcp <= 40) fcBadge = `<span class="status-badge badge-warn">🟠 ${fcp.toFixed(1)}%</span>`;
+      else fcBadge = `<span class="status-badge badge-danger">🔴 ${fcp.toFixed(1)}%</span>`;
+    } else {
+      fcBadge = '<span style="color:#ccc;">-</span>';
     }
-    return cookieValue;
-}
 
-async function loadMenus() {
-    try {
-        const response = await fetch(`${API_BASE}/menus/`);
-        const menus = await response.json();
-        const tbody = document.querySelector('#menus-table tbody');
-        tbody.innerHTML = '';
-        
-        menus.forEach(menu => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${menu.name}</td>
-                <td>${menu.branch_name || '-'}</td>
-                <td>${menu.recipe_name || '-'}</td>
-                <td>฿${parseFloat(menu.price).toFixed(2)}</td>
-                <td>${menu.description || '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-warning edit-btn" data-id="${menu.id}" style="cursor:pointer;">แก้ไข</button>
-                    <button class="btn btn-sm btn-danger delete-btn" data-id="${menu.id}" style="cursor:pointer;">ลบ</button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-        
-        if (menus.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">ยังไม่มีเมนู</td></tr>';
-        }
-    } catch (error) {
-        console.error('Error loading menus:', error);
+    const statusBadge = hasRecipe
+      ? '<span class="status-badge badge-info">✅ มีสูตร</span>'
+      : '<span class="status-badge badge-warn">⚠️ ยังไม่มีสูตร</span>';
+
+    const checked = selectedIds.has(m.id) ? 'checked' : '';
+
+    return `<tr>
+      <td class="text-center">
+        <input type="checkbox" class="bulk-checkbox" value="${m.id}" ${checked} onchange="toggleSelect(${m.id}, this.checked)">
+      </td>
+      <td style="font-weight:500;">${m.name}</td>
+      <td>${m.branch_name||'-'}</td>
+      <td style="cursor:pointer; color:#667eea; font-weight:500;" onclick="showRecipeDetail(${m.id})">${m.recipe_name||'-'}</td>
+      <td class="text-right" style="font-weight:600;">${fmt(m.price)}</td>
+      <td class="text-center">${fcBadge}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <div style="display:flex; gap:4px;">
+          <button class="btn btn-sm btn-neutral" onclick="viewMenu(${m.id})" title="ดูรายละเอียด">👁️</button>
+          <button class="btn btn-sm btn-secondary edit-btn" data-id="${m.id}" title="แก้ไข">✏️</button>
+          <button class="btn btn-sm btn-success" onclick="duplicateMenu(${m.id})" title="คัดลอก">📋</button>
+          <button class="btn btn-sm btn-danger delete-btn" data-id="${m.id}" title="ลบ">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Pagination buttons
+  const btns = document.getElementById('pagination-btns');
+  let btnsHTML = '';
+  if (totalPages > 1) {
+    btnsHTML += `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹</button>`;
+    for (let i = 1; i <= Math.min(totalPages, 7); i++) {
+      btnsHTML += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
     }
+    if (totalPages > 7) btnsHTML += `<span style="padding:4px;color:#999;">...${totalPages}</span>`;
+    btnsHTML += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>›</button>`;
+  }
+  btns.innerHTML = btnsHTML;
+  updateBulkBar();
 }
 
-async function loadBranches() {
-    try {
-        const response = await fetch(`${API_BASE}/branches/`);
-        const branches = await response.json();
-        const select = document.getElementById('branchSelect');
-        select.innerHTML = '<option value="">-- เลือกสาขา --</option>';
-        
-        branches.forEach(branch => {
-            const option = document.createElement('option');
-            option.value = branch.id;
-            option.textContent = branch.name;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading branches:', error);
-    }
+function goPage(p) {
+  const filtered = getFiltered();
+  const maxPerPage = perPage >= 1000 ? filtered.length : perPage;
+  const totalPages = Math.ceil(filtered.length / maxPerPage);
+  if (p < 1 || p > totalPages) return;
+  currentPage = p;
+  renderTable();
 }
 
-async function loadAllRecipes() {
-    try {
-        const response = await fetch(`${API_BASE}/recipes/`);
-        allRecipes = await response.json();
-    } catch (error) {
-        console.error('Error loading recipes:', error);
-    }
+function changePerPage() {
+  const v = parseInt(document.getElementById('per-page').value);
+  perPage = v;
+  currentPage = 1;
+  renderTable();
 }
 
-function loadRecipesByBranch() {
-    const branchId = document.getElementById('branchSelect').value;
-    const recipeSelect = document.getElementById('recipeSelect');
-    recipeSelect.innerHTML = '<option value="">-- เลือกสูตรอาหาร --</option>';
-    
-    if (!branchId) return;
-    
-    const filtered = allRecipes.filter(r => r.branch === parseInt(branchId));
-    filtered.forEach(recipe => {
-        const option = document.createElement('option');
-        option.value = recipe.id;
-        option.textContent = recipe.name;
-        recipeSelect.appendChild(option);
-    });
+// ═══════════════════════════════════════════
+// BULK SELECTION
+// ═══════════════════════════════════════════
+function toggleSelectAll() {
+  const checked = document.getElementById('select-all').checked;
+  const filtered = getFiltered();
+  const start = (currentPage - 1) * perPage;
+  const pageItems = filtered.slice(start, start + perPage);
+  pageItems.forEach(m => {
+    if (checked) selectedIds.add(m.id); else selectedIds.delete(m.id);
+  });
+  updateBulkBar();
+  renderTable();
 }
 
+function toggleSelect(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  updateBulkBar();
+  updateSelectAllCheckbox();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  document.getElementById('bulk-count').textContent = selectedIds.size;
+  bar.classList.toggle('show', selectedIds.size > 0);
+}
+
+function updateSelectAllCheckbox() {
+  const filtered = getFiltered();
+  const start = (currentPage - 1) * perPage;
+  const pageItems = filtered.slice(start, start + perPage);
+  const allChecked = pageItems.length > 0 && pageItems.every(m => selectedIds.has(m.id));
+  document.getElementById('select-all').checked = allChecked;
+}
+
+function clearBulkSelection() {
+  selectedIds.clear();
+  document.getElementById('select-all').checked = false;
+  renderTable();
+}
+
+// ═══════════════════════════════════════════
+// MODAL CRUD
+// ═══════════════════════════════════════════
 function openAddModal() {
-    currentMenuId = null;
-    document.getElementById('modalTitle').textContent = 'เพิ่มเมนู';
-    document.getElementById('menuForm').reset();
-    document.getElementById('menuId').value = '';
-    document.getElementById('recipeSelect').innerHTML = '<option value="">-- เลือกสูตรอาหาร --</option>';
-    document.getElementById('menuModal').style.display = 'block';
+  currentEditId = null;
+  document.getElementById('modal-title').textContent = '➕ เพิ่มเมนูใหม่';
+  document.getElementById('menu-id').value = '';
+  document.getElementById('menu-branch').value = '';
+  document.getElementById('menu-recipe').innerHTML = '<option value="">-- ไม่มี --</option>';
+  document.getElementById('menu-name').value = '';
+  document.getElementById('menu-price').value = '';
+  document.getElementById('menu-description').value = '';
+  document.getElementById('menu-fc-preview').value = '';
+  document.getElementById('recipe-preview-section').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('menus-modal-show');
 }
 
 function closeModal() {
-    document.getElementById('menuModal').style.display = 'none';
+  document.getElementById('modal-overlay').classList.remove('menus-modal-show');
+}
+
+function loadRecipesByBranch() {
+  const bid = document.getElementById('menu-branch').value;
+  const sel = document.getElementById('menu-recipe');
+  sel.innerHTML = '<option value="">-- ไม่มี --</option>';
+  if (!bid) return;
+  allRecipes.filter(r => r.branch == bid).forEach(r => {
+    sel.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+  });
 }
 
 async function editMenu(id) {
-    try {
-        const response = await fetch(`${API_BASE}/menus/${id}/`);
-        const menu = await response.json();
-        
-        currentMenuId = id;
-        document.getElementById('modalTitle').textContent = 'แก้ไขเมนู';
-        document.getElementById('menuId').value = menu.id;
-        document.getElementById('branchSelect').value = menu.branch;
-        
-        // Load recipes for this branch
-        loadRecipesByBranch();
-        
-        // Wait a bit for recipes to load then set selected recipe
-        setTimeout(() => {
-            document.getElementById('recipeSelect').value = menu.recipe || '';
-        }, 100);
-        
-        document.getElementById('menuName').value = menu.name;
-        document.getElementById('menuPrice').value = menu.price;
-        document.getElementById('menuDescription').value = menu.description || '';
-        
-        document.getElementById('menuModal').style.display = 'block';
-    } catch (error) {
-        console.error('Error loading menu:', error);
+  try {
+    const r = await fetch(`${API}/menus/${id}/`);
+    const m = await r.json();
+    currentEditId = id;
+    document.getElementById('modal-title').textContent = '✏️ แก้ไขเมนู';
+    document.getElementById('menu-id').value = m.id;
+    document.getElementById('menu-branch').value = m.branch;
+
+    // Load recipes for this branch
+    loadRecipesByBranch();
+    setTimeout(() => { document.getElementById('menu-recipe').value = m.recipe || ''; }, 100);
+
+    document.getElementById('menu-name').value = m.name;
+    document.getElementById('menu-price').value = m.price;
+    document.getElementById('menu-description').value = m.description || '';
+    document.getElementById('menu-fc-preview').value = '';
+    document.getElementById('recipe-preview-section').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('menus-modal-show');
+  } catch(e) {
+    toast('error', 'โหลดข้อมูลเมนูไม่ได้: ' + e.message);
+  }
+}
+
+async function saveMenu() {
+  const branch = document.getElementById('menu-branch').value;
+  const name = document.getElementById('menu-name').value.trim();
+  const price = document.getElementById('menu-price').value;
+
+  if (!branch) { toast('warning', 'กรุณาเลือกสาขา'); return; }
+  if (!name) { toast('warning', 'กรุณาตั้งชื่อเมนู'); return; }
+  if (!price) { toast('warning', 'กรุณาใส่ราคา'); return; }
+
+  const data = {
+    branch: branch,
+    recipe: document.getElementById('menu-recipe').value || null,
+    name: name,
+    price: parseFloat(price),
+    description: document.getElementById('menu-description').value.trim()
+  };
+
+  try {
+    const method = currentEditId ? 'PUT' : 'POST';
+    const url = currentEditId ? `${API}/menus/${currentEditId}/` : `${API}/menus/`;
+    const r = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.error || JSON.stringify(err));
     }
+
+    closeModal();
+    await refreshData();
+    toast('success', currentEditId ? 'แก้ไขเมนูเรียบร้อยค่ะ' : 'เพิ่มเมนูเรียบร้อยค่ะ');
+  } catch(e) {
+    toast('error', 'บันทึกไม่สำเร็จ: ' + e.message);
+  }
 }
 
 async function deleteMenu(id) {
-    if (!confirm('ยืนยันการลบเมนูนี้?')) return;
-    
-    try {
-        await fetch(`${API_BASE}/menus/${id}/`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        });
-        loadMenus();
-    } catch (error) {
-        console.error('Error deleting menu:', error);
-    }
+  const m = allMenus.find(x => x.id === id);
+  if (!confirm(`ยืนยันลบเมนู "${m.name}"?`)) return;
+
+  try {
+    const r = await fetch(`${API}/menus/${id}/`, {
+      method: 'DELETE',
+      headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+    if (!r.ok) throw new Error('DELETE failed');
+    selectedIds.delete(id);
+    await refreshData();
+    toast('success', 'ลบเมนูเรียบร้อยค่ะ');
+  } catch(e) {
+    toast('error', 'ลบไม่ได้: ' + e.message);
+  }
 }
 
-document.getElementById('menuForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
+async function duplicateMenu(id) {
+  try {
+    const r = await fetch(`${API}/menus/${id}/`);
+    const m = await r.json();
     const data = {
-        branch: document.getElementById('branchSelect').value,
-        recipe: document.getElementById('recipeSelect').value || null,
-        name: document.getElementById('menuName').value,
-        price: document.getElementById('menuPrice').value,
-        description: document.getElementById('menuDescription').value
+      branch: m.branch,
+      recipe: m.recipe || null,
+      name: m.name + ' (คัดลอก)',
+      price: m.price,
+      description: m.description || ''
     };
-    
+    const resp = await fetch(`${API}/menus/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify(data)
+    });
+    if (!resp.ok) throw new Error('คัดลอกไม่สำเร็จ');
+    await refreshData();
+    toast('success', 'คัดลอกเมนูเรียบร้อยค่ะ');
+  } catch(e) {
+    toast('error', 'คัดลอกไม่ได้: ' + e.message);
+  }
+}
+
+async function bulkDelete() {
+  const count = selectedIds.size;
+  if (count === 0) { toast('warning', 'กรุณาเลือกรายการก่อน'); return; }
+  if (!confirm(`ยืนยันลบเมนูที่เลือก ${count} รายการ?`)) return;
+
+  let ok = 0, fail = 0;
+  for (const id of selectedIds) {
     try {
-        const method = currentMenuId ? 'PUT' : 'POST';
-        const url = currentMenuId 
-            ? `${API_BASE}/menus/${currentMenuId}/`
-            : `${API_BASE}/menus/`;
-        
-        await fetch(url, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify(data)
-        });
-        
-        closeModal();
-        loadMenus();
-    } catch (error) {
-        console.error('Error saving menu:', error);
-    }
+      const r = await fetch(`${API}/menus/${id}/`, {
+        method: 'DELETE', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      });
+      if (r.ok) ok++; else fail++;
+    } catch(e) { fail++; }
+  }
+
+  selectedIds.clear();
+  document.getElementById('select-all').checked = false;
+  await refreshData();
+  if (fail === 0) toast('success', `ลบ ${ok} เมนูเรียบร้อยค่ะ`);
+  else toast('warning', `ลบสำเร็จ ${ok} ล้มเหลว ${fail}`);
+}
+
+async function refreshData() {
+  const [rM, rB, rR] = await Promise.all([
+    fetch(API+'/menus/'), fetch(API+'/branches/'), fetch(API+'/recipes/')
+  ]);
+  allMenus = await rM.json();
+  allBranches = await rB.json();
+  allRecipes = await rR.json();
+  allRecipes.forEach(r => { if (r.items) recipeIngredientsCache[r.id] = r.items; });
+  updateKPIs();
+  renderTable();
+}
+
+// ═══════════════════════════════════════════
+// RECIPE PREVIEW (in modal)
+// ═══════════════════════════════════════════
+document.getElementById('menu-recipe').addEventListener('change', onRecipeChange);
+
+async function onRecipeChange() {
+  const rid = document.getElementById('menu-recipe').value;
+  const preview = document.getElementById('recipe-preview-section');
+  const fcInput = document.getElementById('menu-fc-preview');
+  if (!rid) { preview.style.display = 'none'; fcInput.value = ''; return; }
+
+  let items = recipeIngredientsCache[rid];
+  if (!items) {
+    try {
+      const r = await fetch(`${API}/recipes/${rid}/`);
+      const rec = await r.json();
+      if (rec.items) { items = rec.items; recipeIngredientsCache[rid] = items; }
+    } catch(e) { preview.style.display = 'none'; fcInput.value = ''; return; }
+  }
+
+  if (!items || items.length === 0) {
+    preview.style.display = 'none'; fcInput.value = 'ไม่มีวัตถุดิบ'; return;
+  }
+
+  preview.style.display = 'block';
+  let totalCost = 0;
+  document.getElementById('recipe-preview-body').innerHTML = items.map(it => {
+    const cost = it.quantity * it.price_per_unit;
+    totalCost += cost;
+    return `<tr><td>${it.ingredient_name}</td><td class="text-right">${it.quantity} ${it.ingredient_unit||''}</td><td class="text-right">${fmt(cost)}</td></tr>`;
+  }).join('');
+  document.getElementById('recipe-preview-total').textContent = fmt(totalCost);
+
+  // Calculate FC % if price is set
+  const price = parseFloat(document.getElementById('menu-price').value) || 0;
+  if (price > 0) {
+    const fcp = (totalCost / price * 100).toFixed(1);
+    fcInput.value = `${fcp}%`;
+  }
+}
+
+// Update FC preview when price changes
+document.getElementById('menu-price').addEventListener('input', function() {
+  const rid = document.getElementById('menu-recipe').value;
+  if (!rid) return;
+  const items = recipeIngredientsCache[rid];
+  if (!items) return;
+  const totalCost = items.reduce((s,it) => s + it.quantity * it.price_per_unit, 0);
+  const price = parseFloat(this.value) || 0;
+  if (price > 0) {
+    document.getElementById('menu-fc-preview').value = `${(totalCost / price * 100).toFixed(1)}%`;
+  }
 });
 
-// Load data on page load
-document.addEventListener('DOMContentLoaded', () => {
-    loadBranches();
-    loadAllRecipes();
-    loadMenus();
+// ═══════════════════════════════════════════
+// RECIPE DETAIL (inline expand)
+// ═══════════════════════════════════════════
+async function showRecipeDetail(menuId) {
+  const m = allMenus.find(x => x.id === menuId);
+  if (!m || !m.recipe) return;
+
+  let items = recipeIngredientsCache[m.recipe];
+  if (!items) {
+    try {
+      const r = await fetch(`${API}/recipes/${m.recipe}/`);
+      const rec = await r.json();
+      if (rec.items) { items = rec.items; recipeIngredientsCache[m.recipe] = items; }
+    } catch(e) { return; }
+  }
+
+  if (!items || items.length === 0) { return; }
+
+  // Check if row is already expanded
+  const existing = document.querySelector(`[data-preview-for="${menuId}"]`);
+  if (existing) { existing.remove(); return; }
+
+  let totalCost = 0;
+  const rows = items.map(it => {
+    const cost = it.quantity * it.price_per_unit;
+    totalCost += cost;
+    return `<tr><td style="padding:4px 8px;">${it.ingredient_name}</td><td class="text-right" style="padding:4px 8px;">${it.quantity} ${it.ingredient_unit||''}</td><td class="text-right" style="padding:4px 8px;">${fmt(cost)}</td></tr>`;
+  }).join('');
+
+  const fcp = m.price > 0 ? (totalCost / m.price * 100).toFixed(1) : '—';
+  const tr = document.createElement('tr');
+  tr.setAttribute('data-preview-for', menuId);
+  tr.innerHTML = `<td colspan="8" style="padding:0; background:#f8f9fa;">
+    <div style="padding:12px; border-radius:8px;">
+      <div style="font-size:12px; font-weight:600; color:#1B3A57; margin-bottom:8px;">📦 ${m.recipe_name} — ต้นทุนรวม: ${fmt(totalCost)} | FC: ${fcp}%</div>
+      <table style="width:100%; border-collapse:collapse; font-size:11px;">
+        <thead><tr><th>วัตถุดิบ</th><th class="text-right">จำนวน</th><th class="text-right">ต้นทุน</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="font-weight:700;background:#f0f0f0;"><td>รวม</td><td class="text-right"></td><td class="text-right">${fmt(totalCost)}</td></tr></tfoot>
+      </table>
+    </div>
+  </td>`;
+
+  // Find the row and insert after
+  const tbody = document.getElementById('menus-tbody');
+  const menuRow = [...tbody.children].find(tr => tr.innerHTML.includes(`editMenu(${menuId})`));
+  if (menuRow) {
+    tbody.insertBefore(tr, menuRow.nextSibling);
+  }
+}
+
+// ═══════════════════════════════════════════
+// DETAIL MODAL (Quick View)
+// ═══════════════════════════════════════════
+function viewMenu(id) {
+  const m = allMenus.find(x => x.id === id);
+  if (!m) return;
+
+  const fcp = m.food_cost_percent;
+  let fcHTML = fcp !== null && fcp !== undefined
+    ? `<span style="font-size:20px; font-weight:700; color: ${fcp<=30?'#2e7d32':fcp<=40?'#e65100':'#c62828'};">${fcp.toFixed(1)}%</span>`
+    : '<span style="color:#999;">-</span>';
+
+  const statusText = m.recipe ? '✅ มีสูตรอาหารผูกอยู่' : '⚠️ ยังไม่มีสูตรอาหาร';
+
+  document.getElementById('detail-body').innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid #f0f0f0;">
+      <div style="font-size:28px;">🍽️</div>
+      <div>
+        <div style="font-size:18px; font-weight:700;">${m.name}</div>
+        <div style="font-size:12px; color:#999;">${m.branch_name||'-'}</div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+      <div><div style="font-size:11px;color:#999;">ราคาขาย</div><div style="font-size:18px; font-weight:700;">${fmt(m.price)}</div></div>
+      <div><div style="font-size:11px;color:#999;">Food Cost %</div><div>${fcHTML}</div></div>
+      <div><div style="font-size:11px;color:#999;">สูตรอาหาร</div><div style="font-size:14px; font-weight:500;">${m.recipe_name||'-'}</div></div>
+      <div><div style="font-size:11px;color:#999;">สถานะ</div><div style="font-size:13px;">${statusText}</div></div>
+    </div>
+    ${m.description ? `<div style="margin-top:14px;padding-top:14px;border-top:1px solid #f0f0f0;font-size:13px;color:#555;">📝 ${m.description}</div>` : ''}
+  `;
+
+  document.getElementById('detail-edit-btn').onclick = () => { closeDetailModal(); editMenu(id); };
+  document.getElementById('detail-overlay').classList.add('menus-modal-show');
+}
+
+function closeDetailModal() {
+  document.getElementById('detail-overlay').classList.remove('menus-modal-show');
+}
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+function toast(type, msg) {
+  const icons = { success:'✅', error:'❌', info:'ℹ️', warning:'⚠️' };
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||''}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 4000);
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeDetailModal(); }
 });
 
-// Event delegation for edit/delete buttons (iOS Safari fix)
-document.querySelector('#menus-table tbody').addEventListener('click', function(e) {
-    const editBtn = e.target.closest('.edit-btn');
-    if (editBtn) {
-        const id = editBtn.getAttribute('data-id');
-        editMenu(parseInt(id));
-        return;
-    }
-    const deleteBtn = e.target.closest('.delete-btn');
-    if (deleteBtn) {
-        const id = deleteBtn.getAttribute('data-id');
-        deleteMenu(parseInt(id));
-        return;
-    }
+// Close modals on overlay click
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('detail-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeDetailModal(); });
+
+// Event delegation for action buttons in table (fixes inline onclick in dynamic rows)
+document.querySelector('.data-table tbody').addEventListener('click', function(e) {
+  const editBtn = e.target.closest('.edit-btn');
+  if (editBtn) { editMenu(parseInt(editBtn.dataset.id)); return; }
+  const deleteBtn = e.target.closest('.delete-btn');
+  if (deleteBtn) { deleteMenu(parseInt(deleteBtn.dataset.id)); return; }
 });
+
 </script>
 {% endblock %}

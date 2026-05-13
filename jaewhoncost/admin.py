@@ -7,16 +7,23 @@ from .models import Owner, Branch, Ingredient, Recipe, RecipeItem, Menu, Sale, S
 class OwnerAdmin(admin.ModelAdmin):
     list_display = ('name', 'email', 'phone', 'created_at')
     search_fields = ('name', 'email')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'logo_preview')
     fieldsets = (
         ('ข้อมูลเจ้าของร้าน', {
-            'fields': ('name', 'email', 'phone', 'address')
+            'fields': ('name', 'email', 'phone', 'address', 'logo', 'logo_preview')
         }),
         ('Timestamps', {
             'fields': ('created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
+
+    def logo_preview(self, obj):
+        if obj.logo:
+            from django.utils.html import format_html
+            return format_html('<img src="{}" style="max-height: 150px; border-radius: 8px;" />', obj.logo.url)
+        return 'ไม่มีรูป'
+    logo_preview.short_description = 'ตัวอย่างโลโก้'
 
 
 # ===== 2. Branch Admin =====

@@ -1,365 +1,521 @@
 {% extends 'jaewhoncost/base.html' %}
+{% load static %}
 
-{% block title %}Recipes - Restaurant Management{% endblock %}
-{% block page_title %}Recipes Management{% endblock %}
+{% block title %}สูตรอาหาร (Recipes) - Restaurant Management{% endblock %}
+{% block page_title %}👨‍🍳 จัดการสูตรอาหาร (Recipes Management){% endblock %}
+
+{% block extra_css %}
+<style>
+
+  .rec-stat { padding: 18px; border-radius: 12px; color: white; position: relative; overflow: hidden; }
+  .rec-stat::after { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); }
+  .rec-stat h3 { margin: 0; font-size: 26px; font-weight: 700; position: relative; z-index: 1; font-family: 'Prompt', sans-serif; }
+  .rec-stat p { margin: 4px 0 0 0; font-size: 12px; opacity: 0.9; position: relative; z-index: 1; font-family: 'Prompt', sans-serif; }
+  .rec-card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .rec-section { font-size: 15px; font-weight: 600; color: #1B3A57; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-family: 'Prompt', sans-serif; }
+  .tab-btn { padding: 8px 16px; border: 2px solid #e0e0e0; background: white; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; font-family: 'Prompt', sans-serif; }
+  .tab-btn.active { border-color: #D4AF37; background: #D4AF37; color: white; }
+  .tab-btn:hover:not(.active) { border-color: #D4AF37; color: #D4AF37; }
+  .search-input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; }
+  .form-label { font-size: 12px; font-weight: 600; color: #555; display: block; margin-bottom: 4px; font-family: 'Prompt', sans-serif; }
+  .form-select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .price-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .form-row { display: grid; gap: 12px; margin-bottom: 14px; }
+  .form-row.two { grid-template-columns: 1fr 1fr; }
+  .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+  .modal-body { background: white; width: 95%; max-width: 700px; margin: 30px auto; padding: 28px; border-radius: 12px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+  .modal-body h3 { margin: 0 0 18px 0; font-size: 17px; color: #1B3A57; font-family: 'Prompt', sans-serif; }
+  .item-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .item-ok { background: #e3f2fd; color: #1565c0; }
+  .item-warn { background: #fff3e0; color: #e65100; }
+  .item-empty { background: #fce4ec; color: #c62828; }
+  .menu-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; background: #f0f0f0; color: #555; margin-right: 4px; }
+  .bar-chart { height: 24px; background: #f0f0f0; border-radius: 6px; overflow: hidden; position: relative; }
+  .bar-chart-fill { height: 100%; border-radius: 6px; transition: width 0.3s; }
+  .bar-chart-label { position: absolute; right: 8px; top: 0; line-height: 24px; font-size: 10px; color: #666; font-weight: 600; }
+  .rec-table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: 'Prompt', sans-serif; }
+  .rec-table thead tr { background: #f8f9fa; border-bottom: 2px solid #e0e0e0; }
+  .rec-table .th-sort { cursor: pointer; user-select: none; }
+  .rec-table .th-sort:hover { color: #D4AF37; }
+  .rec-table .th-sort::after { content: '⇅'; margin-left: 4px; font-size: 11px; color: #aaa; }
+  .rec-table tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
+  .rec-table tbody tr:hover { background: #fafafa; }
+  .rec-table td { padding: 10px 12px; vertical-align: middle; }
+  .cost-bar { display: flex; align-items: center; gap: 6px; }
+  .cost-val { font-weight: 600; color: #2e7d32; }
+  .expand-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #666; }
+  .expand-btn:hover { background: #f0f0f0; }
+  .ing-detail-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .ing-detail-table th { padding: 6px 8px; background: #f8f9fa; text-align: left; font-weight: 600; }
+  .ing-detail-table td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+  .items-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  .items-tbl th { padding: 8px; background: #f5f5f5; text-align: left; font-weight: 600; }
+  .items-tbl td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+
+/* Mobile responsive fallbacks */ @media (max-width: 768px) { .form-row-inline, [style*="display: flex"], [style*="display:grid"] { flex-direction: column !important; grid-template-columns: 1fr !important; } [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; } .modal-form-grid, [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; } .btn-group, .action-buttons, [style*="gap:"] > .btn { margin: 4px 0; } input[type="text"], input[type="number"], input[type="date"], select, textarea { font-size: 16px !important; } } @media (max-width: 480px) { .card { padding: 14px !important; } }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h3>👨‍🍳 Recipes</h3>
-    <button class="btn btn-primary" onclick="openAddModal()">+ Add Recipe</button>
-</div>
-
-<table id="recipes-table" class="table">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Branch</th>
-            <th>Description</th>
-            <th>Ingredients in this Recipe</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr><td colspan="5" style="text-align: center;">Loading...</td></tr>
-    </tbody>
-</table>
-
-<!-- Add/Edit Modal -->
-<div id="recipeModal" class="modal">
-    <div class="modal-content" style="max-width: 800px;">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h2>Add/Edit Recipe</h2>
-        <form id="recipeForm">
-            <div class="form-group">
-                <label>Branch</label>
-                <select id="branch_id" required>
-                    <option value="">Select Branch</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Name</label>
-                <input type="text" id="name" required>
-            </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea id="description" rows="3"></textarea>
-            </div>
-            
-            <h3 style="margin-top: 20px;">Ingredients</h3>
-            <button type="button" class="btn btn-secondary" onclick="addIngredientRow()">+ Add Ingredient</button>
-            
-            <table class="table" style="margin-top: 10px;">
-                <thead>
-                    <tr>
-                        <th>Ingredient</th>
-                        <th>Quantity</th>
-                        <th>Unit</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="recipe-items-tbody">
-                </tbody>
-            </table>
-            
-            <button type="submit" class="btn btn-primary" style="margin-top: 20px;">Save</button>
-        </form>
+<!-- ===== KPI Summary Cards ===== -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 18px;">
+    <div class="rec-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <h3 id="kpi-total">0</h3>
+        <p>📋 สูตรอาหารทั้งหมด</p>
+    </div>
+    <div class="rec-stat" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+        <h3 id="kpi-items">0</h3>
+        <p>🥘 วัตถุดิบรวมทั้งหมด</p>
+    </div>
+    <div class="rec-stat" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+        <h3 id="kpi-complete">0</h3>
+        <p>✅ มีวัตถุดิบครบ</p>
+    </div>
+    <div class="rec-stat" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+        <h3 id="kpi-no-items">0</h3>
+        <p>⚠️ ยังไม่มีวัตถุดิบ</p>
+    </div>
+    <div class="rec-stat" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        <h3 id="kpi-menus">0</h3>
+        <p>🍽️ เมนูที่ผูกสูตร</p>
     </div>
 </div>
 
-<!-- Ingredient Select Modal -->
-<div id="ingredientSelectModal" class="modal">
-    <div class="modal-content">
-        <span class="close" onclick="closeIngredientSelectModal()">&times;</span>
-        <h2>Select Ingredient</h2>
-        <table class="table">
+<!-- ===== Toolbar: Search + Filters + Actions ===== -->
+<div class="rec-card">
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: end;">
+        <div style="flex: 1; min-width: 200px;">
+            <label class="form-label">ค้นหา</label>
+            <input type="text" id="rec-search" class="search-input" placeholder="พิมพ์ชื่อสูตร..." oninput="applyFilters()">
+        </div>
+        <div style="min-width: 150px;">
+            <label class="form-label">สาขา</label>
+            <select id="rec-branch" class="form-select" onchange="applyFilters()">
+                <option value="">ทุกสาขา</option>
+            </select>
+        </div>
+        <div style="min-width: 140px;">
+            <label class="form-label">สถานะ</label>
+            <select id="rec-status" class="form-select" onchange="applyFilters()">
+                <option value="">ทั้งหมด</option>
+                <option value="complete">✅ มีวัตถุดิบ</option>
+                <option value="no-items">⚠️ ไม่มีวัตถุดิบ</option>
+                <option value="linked">🍽️ ผูกเมนูแล้ว</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 8px; flex-shrink: 0;">
+            <button class="tab-btn" onclick="resetFilters()">🔄 ล้าง</button>
+            <button class="tab-btn active" onclick="openAddModal()" style="border-color: #D4AF37; background: #D4AF37; color: white;">+ เพิ่มสูตร</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Charts Row ===== -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px;">
+    <div class="rec-card">
+        <div class="rec-section">📊 จำนวนวัตถุดิบต่อสูตร</div>
+        <div id="chart-items-dist"></div>
+    </div>
+    <div class="rec-card">
+        <div class="rec-section">🏆 สูตรที่มีวัตถุดิบมากที่สุด 10 อันดับ</div>
+        <div id="top-recipes-list"><p style="text-align:center;color:#999;padding:20px;">กำลังโหลด...</p></div>
+    </div>
+</div>
+
+<!-- ===== Recipes Table ===== -->
+<div class="rec-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div class="rec-section" style="margin-bottom: 0;">📋 รายการสูตรอาหาร <span id="table-count" style="font-weight: normal; color: #999; font-size: 13px;">(0 รายการ)</span></div>
+        <div style="font-size: 12px; color: #999;">ดับเบิ้ลคลิกแถวเพื่อแก้ไข</div>
+    </div>
+    <div style="overflow-x: auto;">
+        <table class="rec-table" id="rec-table">
             <thead>
                 <tr>
-                    <th>Name</th>
-                    <th>Unit</th>
-                    <th>Price</th>
-                    <th></th>
+                    <th class="th-sort" onclick="sortBy('name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">ชื่อสูตร</th>
+                    <th class="th-sort" onclick="sortBy('branch_name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">สาขา</th>
+                    <th class="th-sort" onclick="sortBy('item_count')" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">วัตถุดิบ</th>
+                    <th class="th-sort" onclick="sortBy('est_cost')" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1B3A57;">ต้นทุนประมาณการ</th>
+                    <th class="th-sort" onclick="sortBy('menu_count')" style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">เมนูที่ผูก</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">สถานะ</th>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57;">จัดการ</th>
                 </tr>
             </thead>
-            <tbody id="ingredients-select-tbody">
+            <tbody id="rec-tbody">
+                <tr><td colspan="7" style="padding: 40px; text-align: center; color: #999;">กำลังโหลด...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
 
+<!-- ===== Modal: Add/Edit Recipe ===== -->
+<div id="rec-modal" class="modal-backdrop">
+    <div class="modal-body">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+            <h3 id="rec-modal-title">➕ เพิ่มสูตรอาหาร</h3>
+            <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+        <form id="rec-form" onsubmit="return saveRecipe(event)">
+            <input type="hidden" id="rec-id">
+            <div class="form-row two">
+                <div>
+                    <label class="form-label">สาขา *</label>
+                    <select id="rec-branch-f" class="form-select" required>
+                        <option value="">เลือกสาขา</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">ชื่อสูตร *</label>
+                    <input type="text" id="rec-name" class="price-input" required placeholder="เช่น ต้มยำกุ้ง">
+                </div>
+            </div>
+            <div style="margin-bottom: 14px;">
+                <label class="form-label">คำอธิบาย</label>
+                <input type="text" id="rec-desc" class="price-input" placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)">
+            </div>
+
+            <!-- Ingredients Section -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <label class="form-label" style="margin-bottom: 0;">วัตถุดิบในสูตร</label>
+                <button type="button" class="tab-btn active" onclick="openIngSelect(null)" style="padding: 4px 12px; font-size: 12px; border-color: #667eea; color: #667eea;">+ เพิ่มวัตถุดิบ</button>
+            </div>
+            <div class="table-responsive"><table class="items-tbl" id="rec-items-tbl">
+                <thead>
+                    <tr><th>วัตถุดิบ</th><th style="width: 100px;">จำนวน</th><th style="width: 60px;">หน่วย</th><th style="width: 60px;"></th></tr>
+                </thead>
+                <tbody id="rec-items-body"></tbody>
+            </table></div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;">
+                <button type="button" class="tab-btn" onclick="closeModal()">ยกเลิก</button>
+                <button type="submit" class="tab-btn active" style="border-color: #D4AF37; background: #D4AF37; color: white;">บันทึก</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== Modal: Select Ingredient ===== -->
+<div id="ing-select-modal" class="modal-backdrop">
+    <div class="modal-body" style="max-width: 550px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3>เลือกวัตถุดิบ</h3>
+            <button onclick="closeIngSelect()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+        <input type="text" id="ing-search" class="search-input" placeholder="ค้นหาวัตถุดิบ..." oninput="filterIngSelect()" style="margin-bottom: 12px;">
+        <div style="max-height: 350px; overflow-y: auto;">
+            <table class="rec-table" id="ing-select-tbl">
+                <thead><tr><th style="padding:8px 10px;">ชื่อ</th><th style="padding:8px 10px; text-align: center;">หน่วย</th><th style="padding:8px 10px; text-align: right;">ราคา</th><th style="padding:8px 10px;"></th></tr></thead>
+                <tbody id="ing-sel-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-    const API_BASE = window.location.origin + '/api';
-    let currentRecipeId = null;
-    let recipes = [];
-    let allIngredients = [];
-    let currentEditingRow = null;
-    
-    // CSRF Token function
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    
-    async function loadRecipes() {
-        try {
-            const response = await fetch(`${API_BASE}/recipes/`);
-            recipes = await response.json();
-            const tbody = document.querySelector('#recipes-table tbody');
-            tbody.innerHTML = '';
+const API = window.location.origin + '/api';
+let allRecipes = [], allIngs = [], branches = [], currentId = null, sortCol = 'name', sortAsc = true;
+let editRowTarget = null;
+const fmt = n => '฿' + parseFloat(n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const getCookie = name => { let v=null; if(document.cookie) document.cookie.split(';').forEach(c=>{const[k,va]=c.trim().split('='); if(k===name) v=va; }); return v; };
 
-            recipes.forEach(recipe => {
-                const row = tbody.insertRow();
-                
-                let itemsHtml = '<span style="color: #999;">No items</span>';
-                if (recipe.items && recipe.items.length > 0) {
-                    itemsHtml = '<table style="width: 100%; font-size: 12px; border-collapse: collapse;">';
-                    recipe.items.forEach(item => {
-                        const qty = item.quantity || 0;
-                        const unit = item.ingredient_unit || '-';
-                        const name = item.ingredient_name || 'Unknown';
-                        itemsHtml += `<tr>
-                            <td style="padding: 2px 5px; border-bottom: 1px solid #eee;">${name}</td>
-                            <td style="padding: 2px 5px; text-align: right; border-bottom: 1px solid #eee;">${qty} ${unit}</td>
-                        </tr>`;
-                    });
-                    itemsHtml += '</table>';
-                }
-                
-                row.innerHTML = `
-                    <td>${recipe.name}</td>
-                    <td>${recipe.branch_name}</td>
-                    <td>${recipe.description || '-'}</td>
-                    <td style="min-width: 200px;">${itemsHtml}</td>
-                    <td>
-                        <button class="btn btn-primary edit-btn" data-id="${recipe.id}" style="cursor:pointer;">Edit</button>
-                        <button class="btn btn-danger delete-btn" data-id="${recipe.id}" style="cursor:pointer;">Delete</button>
-                    </td>
-                `;
+document.addEventListener('DOMContentLoaded', init);
+
+async function init() {
+    const [r1, r2] = await Promise.all([fetch(API+'/recipes/'), fetch(API+'/ingredients/')]);
+    if (!r1.ok || !r2.ok) { throw new Error('API error'); }
+    allRecipes = await r1.json();
+    allIngs = await r2.json();
+
+    // Load branches from recipe data
+    const branchMap = {};
+    allRecipes.forEach(r => { branchMap[r.branch] = r.branch_name; });
+    branches = Object.entries(branchMap).map(([id, name]) => ({id, name}));
+    populateBranchSelects();
+
+    // Enrich items: add name/unit from ingredients
+    allRecipes.forEach(r => {
+        if (r.items) {
+            r.items.forEach(it => {
+                it._ingName = it.ingredient_name || '';
+                it._ingUnit = it.ingredient_unit || '';
             });
-
-            if (recipes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No recipes</td></tr>';
-            }
-        } catch (error) {
-            console.error('Error loading recipes:', error);
+            r.item_count = r.items.length;
+            r.est_cost = r.items.reduce((s, it) => s + (parseFloat(it.quantity) || 0), 0);
+        } else {
+            r.items = [];
+            r.item_count = 0;
+            r.est_cost = 0;
         }
-    }
-    
-    async function loadIngredients() {
-        try {
-            const response = await fetch(`${API_BASE}/ingredients/`);
-            allIngredients = await response.json();
-        } catch (error) {
-            console.error('Error loading ingredients:', error);
-        }
-    }
-
-    async function loadBranches() {
-        try {
-            const response = await fetch(`${API_BASE}/branches/`);
-            const branches = await response.json();
-            const select = document.getElementById('branch_id');
-            
-            branches.forEach(branch => {
-                const option = document.createElement('option');
-                option.value = branch.id;
-                option.textContent = branch.name;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading branches:', error);
-        }
-    }
-
-    function openAddModal() {
-        currentRecipeId = null;
-        document.getElementById('recipeForm').reset();
-        document.getElementById('recipe-items-tbody').innerHTML = '';
-        document.getElementById('recipeModal').style.display = 'block';
-    }
-
-    function closeModal() {
-        document.getElementById('recipeModal').style.display = 'none';
-    }
-
-    async function editRecipe(id) {
-        try {
-            const response = await fetch(`${API_BASE}/recipes/${id}/`);
-            const recipe = await response.json();
-            
-            currentRecipeId = id;
-            document.getElementById('branch_id').value = recipe.branch;
-            document.getElementById('name').value = recipe.name;
-            document.getElementById('description').value = recipe.description || '';
-            
-            loadRecipeItems(recipe.items || []);
-            
-            document.getElementById('recipeModal').style.display = 'block';
-        } catch (error) {
-            console.error('Error loading recipe:', error);
-        }
-    }
-    
-    function loadRecipeItems(items) {
-        const tbody = document.getElementById('recipe-items-tbody');
-        tbody.innerHTML = '';
-        if (items && items.length > 0) {
-            items.forEach(item => {
-                addIngredientRowWithData(item.ingredient_name, item.ingredient, item.quantity, item.ingredient_unit);
-            });
-        }
-    }
-    
-    function addIngredientRow() {
-        addIngredientRowWithData('', '', 0, '');
-    }
-    
-    function addIngredientRowWithData(name, ingredientId, quantity, unit) {
-        const tbody = document.getElementById('recipe-items-tbody');
-        const row = tbody.insertRow();
-        row.innerHTML = `
-            <td>
-                <input type="text" class="ingredient-name" value="${name}" readonly style="border: none; background: transparent; width: 100%;">
-                <input type="hidden" class="ingredient-id" value="${ingredientId}">
-            </td>
-            <td>
-                <input type="number" class="ingredient-qty" value="${quantity}" step="0.01" min="0" style="width: 80px; text-align: right; padding: 5px;" required>
-            </td>
-            <td>
-                <input type="text" class="ingredient-unit" value="${unit}" readonly style="border: none; background: transparent; width: 60px;">
-            </td>
-            <td style="text-align: center;">
-                <button type="button" class="btn btn-small" onclick="openIngredientSelect(this)">📋</button>
-                <button type="button" class="btn btn-small btn-danger" onclick="removeIngredientRow(this)">✕</button>
-            </td>
-        `;
-    }
-    
-    function removeIngredientRow(btn) {
-        const row = btn.closest('tr');
-        row.remove();
-    }
-    
-    function openIngredientSelect(btn) {
-        currentEditingRow = btn.closest('tr');
-        loadIngredientsSelectTable();
-        document.getElementById('ingredientSelectModal').style.display = 'block';
-    }
-    
-    function closeIngredientSelectModal() {
-        document.getElementById('ingredientSelectModal').style.display = 'none';
-        currentEditingRow = null;
-    }
-    
-    function loadIngredientsSelectTable() {
-        const tbody = document.getElementById('ingredients-select-tbody');
-        tbody.innerHTML = '';
-        
-        allIngredients.forEach(ing => {
-            const tr = document.createElement('tr');
-            tr.style.cursor = 'pointer';
-            tr.onmouseover = () => tr.style.background = '#f0f0f0';
-            tr.onmouseout = () => tr.style.background = '';
-            tr.onclick = () => selectIngredient(ing);
-            tr.innerHTML = `
-                <td style="padding: 8px;">${ing.name}</td>
-                <td style="padding: 8px;">${ing.unit || '-'}</td>
-                <td style="padding: 8px; text-align: right;">฿${parseFloat(ing.price || 0).toFixed(4)}</td>
-                <td style="padding: 8px;"></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    }
-    
-    function selectIngredient(ingredient) {
-        if (currentEditingRow) {
-            currentEditingRow.querySelector('.ingredient-name').value = ingredient.name;
-            currentEditingRow.querySelector('.ingredient-id').value = ingredient.id;
-            currentEditingRow.querySelector('.ingredient-unit').value = ingredient.unit || '';
-        }
-        closeIngredientSelectModal();
-    }
-    
-    async function deleteRecipe(id) {
-        if (confirm('Are you sure?')) {
-            try {
-                await fetch(`${API_BASE}/recipes/${id}/`, { method: 'DELETE' });
-                loadRecipes();
-            } catch (error) {
-                console.error('Error deleting recipe:', error);
-            }
-        }
-    }
-    
-    document.getElementById('recipeForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const items = [];
-        const rows = document.querySelectorAll('#recipe-items-tbody tr');
-        rows.forEach(row => {
-            const ingredientId = row.querySelector('.ingredient-id').value;
-            const qty = row.querySelector('.ingredient-qty').value;
-            if (ingredientId && qty > 0) {
-                items.push({
-                    ingredient: ingredientId,
-                    quantity: parseFloat(qty)
-                });
-            }
-        });
-        
-        const data = {
-            branch: document.getElementById('branch_id').value,
-            name: document.getElementById('name').value,
-            description: document.getElementById('description').value,
-            items: items
-        };
-
-        try {
-            const method = currentRecipeId ? 'PUT' : 'POST';
-            const url = currentRecipeId 
-                ? `${API_BASE}/recipes/${currentRecipeId}/`
-                : `${API_BASE}/recipes/`;
-
-            await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify(data)
-            });
-
-            closeModal();
-            loadRecipes();
-        } catch (error) {
-            console.error('Error saving recipe:', error);
-        }
+        const menus = allIngs ? [] : []; // not needed
+        r.menu_count = r.menus ? r.menus.length : (r.menu_set ? r.menu_set.length : 0);
     });
 
-    // Event delegation for edit/delete buttons (iOS Safari fix)
-    document.querySelector('#recipes-table tbody').addEventListener('click', function(e) {
-        const editBtn = e.target.closest('.edit-btn');
-        if (editBtn) {
-            const id = editBtn.getAttribute('data-id');
-            editRecipe(parseInt(id));
-            return;
-        }
-        const deleteBtn = e.target.closest('.delete-btn');
-        if (deleteBtn) {
-            const id = deleteBtn.getAttribute('data-id');
-            deleteRecipe(parseInt(id));
-            return;
-        }
+    applyFilters();
+}
+
+function populateBranchSelects() {
+    ['rec-branch','rec-branch-f'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const firstOpt = id === 'rec-branch' ? '<option value="">ทุกสาขา</option>' : '<option value="">เลือกสาขา</option>';
+        sel.innerHTML = firstOpt + branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    });
+}
+
+function applyFilters() {
+    const search = (document.getElementById('rec-search').value || '').toLowerCase();
+    const branch = document.getElementById('rec-branch').value;
+    const status = document.getElementById('rec-status').value;
+
+    let filtered = allRecipes.filter(r => {
+        if (search && !r.name.toLowerCase().includes(search)) return false;
+        if (branch && r.branch != branch) return false;
+        if (status === 'complete' && r.item_count === 0) return false;
+        if (status === 'no-items' && r.item_count > 0) return false;
+        if (status === 'linked' && !r.menu_count) return false;
+        return true;
     });
 
-    loadIngredients();
-    loadBranches();
-    loadRecipes();
+    // Sort
+    filtered.sort((a, b) => {
+        let va, vb;
+        if (sortCol === 'item_count') { va = a.item_count; vb = b.item_count; }
+        else if (sortCol === 'est_cost') { va = a.est_cost; vb = b.est_cost; }
+        else if (sortCol === 'menu_count') { va = a.menu_count; vb = b.menu_count; }
+        else { va = (a[sortCol] || '').toLowerCase(); vb = (b[sortCol] || '').toLowerCase(); }
+        if (va < vb) return sortAsc ? -1 : 1;
+        if (va > vb) return sortAsc ? 1 : -1;
+        return 0;
+    });
+
+    updateKPIs(allRecipes);
+    renderTable(filtered);
+    renderCharts(allRecipes);
+}
+
+function sortBy(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    applyFilters();
+}
+
+function updateKPIs(items) {
+    const total = items.length;
+    const totalIngs = items.reduce((s, r) => s + r.item_count, 0);
+    const complete = items.filter(r => r.item_count > 0).length;
+    const noItems = total - complete;
+    const linked = items.filter(r => r.menu_count > 0).length;
+    document.getElementById('kpi-total').textContent = total;
+    document.getElementById('kpi-items').textContent = totalIngs;
+    document.getElementById('kpi-complete').textContent = complete;
+    document.getElementById('kpi-no-items').textContent = noItems;
+    document.getElementById('kpi-menus').textContent = linked;
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('rec-tbody');
+    document.getElementById('table-count').textContent = `(${items.length} รายการ)`;
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="7" style="padding:40px;text-align:center;color:#999;">ไม่พบสูตรอาหาร</td></tr>'; return; }
+
+    tbody.innerHTML = items.map(r => {
+        const ic = r.item_count;
+        let statusBadge;
+        if (ic === 0) statusBadge = '<span class="item-badge item-empty">ไม่มีวัตถุดิบ</span>';
+        else if (ic <= 2) statusBadge = '<span class="item-badge item-warn">'+ic+' รายการ</span>';
+        else statusBadge = '<span class="item-badge item-ok">'+ic+' รายการ</span>';
+        const menuTags = r.menus ? r.menus.slice(0, 2).map(m => `<span class="menu-badge">${m.name || m}</span>`).join('') : '';
+        const mc = (r.menus ? r.menus.length : 0) || 0;
+        return `<tr ondblclick="editRecipe(${r.id})" style="cursor:pointer;">
+            <td style="font-weight:500;">${r.name}</td>
+            <td>${r.branch_name || '-'}</td>
+            <td style="text-align:center;">${statusBadge}</td>
+            <td style="text-align:right;"><span class="cost-val">${fmt(r.est_cost)}</span></td>
+            <td style="text-align:center;">${mc ? menuTags : '<span style="color:#ccc;">-</span>'}</td>
+            <td style="text-align:center;">${statusBadge}</td>
+            <td style="text-align:center;">
+                <button onclick="editRecipe(${r.id})" style="background:none;border:none;cursor:pointer;font-size:15px;" title="แก้ไข">✏️</button>
+                <button onclick="deleteRecipe(${r.id})" style="background:none;border:none;cursor:pointer;font-size:15px;" title="ลบ">🗑️</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderCharts(items) {
+    // Items distribution
+    const dist = {0: 0, '1-3': 0, '4-6': 0, '7-10': 0, '11+': 0};
+    const maxCount = Math.max(...items.map(r => r.item_count), 1);
+    items.forEach(r => {
+        const n = r.item_count;
+        if (n === 0) dist[0]++;
+        else if (n <= 3) dist['1-3']++;
+        else if (n <= 6) dist['4-6']++;
+        else if (n <= 10) dist['7-10']++;
+        else dist['11+']++;
+    });
+    const total = items.length || 1;
+    const colors = {'0':'#f44336','1-3':'#ff9800','4-6':'#2196f3','7-10':'#4caf50','11+':'#9c27b0'};
+    const box = document.getElementById('chart-items-dist');
+    box.innerHTML = Object.entries(dist).filter(([,v])=>v>0).map(([label, count]) => {
+        const pct = ((count/total)*100).toFixed(1);
+        const c = colors[label];
+        const labelDisplay = label === '0' ? 'ไม่มี' : label;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <span style="width:40px;font-size:11px;font-weight:600;color:#555;">${labelDisplay}</span>
+            <div class="bar-chart" style="flex:1;"><div class="bar-chart-fill" style="width:${pct}%;background:${c};"></div><span class="bar-chart-label">${count} สูตร (${pct}%)</span></div>
+        </div>`;
+    }).join('');
+
+    // Top recipes by item count
+    const top = [...items].filter(r => r.item_count > 0).sort((a, b) => b.item_count - a.item_count).slice(0, 10);
+    const tbox = document.getElementById('top-recipes-list');
+    if (!top.length) { tbox.innerHTML = '<p style="text-align:center;color:#999;padding:15px;">ไม่มีข้อมูล</p>'; return; }
+    tbox.innerHTML = top.map((r, idx) => {
+        const rankStyle = idx < 3 ? `background:linear-gradient(135deg,${idx===0?'#FFD700,#FFA000':idx===1?'#C0C0C0,#9E9E9E':'#CD7F32,#8D6E63'});color:white;` : 'background:#ECEFF1;color:#546E7A;';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+            <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;${rankStyle}">${idx+1}</div>
+            <div style="flex:1;">
+                <div style="font-weight:500;">${r.name}</div>
+                <small style="color:#999;">${r.item_count} วัตถุดิบ · ${fmt(r.est_cost)}</small>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ===== Modal & CRUD =====
+function openAddModal() {
+    currentId = null;
+    document.getElementById('rec-modal-title').textContent = '➕ เพิ่มสูตรอาหาร';
+    document.getElementById('rec-form').reset();
+    document.getElementById('rec-id').value = '';
+    document.getElementById('rec-items-body').innerHTML = '';
+    document.getElementById('rec-modal').style.display = 'block';
+}
+
+async function editRecipe(id) {
+    try {
+        const r = await fetch(API+'/recipes/'+id+'/');
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        const d = await r.json();
+        currentId = id;
+        document.getElementById('rec-modal-title').textContent = '✏️ แก้ไขสูตร — '+d.name;
+        document.getElementById('rec-id').value = d.id;
+        document.getElementById('rec-branch-f').value = d.branch;
+        document.getElementById('rec-name').value = d.name;
+        document.getElementById('rec-desc').value = d.description || '';
+
+        // Load items
+        const tbody = document.getElementById('rec-items-body');
+        tbody.innerHTML = '';
+        if (d.items && d.items.length) {
+            d.items.forEach(it => {
+                addRow(it.ingredient_name || '', it.ingredient || '', it.quantity || 0, it.ingredient_unit || '');
+            });
+        }
+        document.getElementById('rec-modal').style.display = 'block';
+    } catch(e) { console.error('editRecipe:', e); alert('เกิดข้อผิดพลาด'); }
+}
+
+function addRow(name, ingId, qty, unit) {
+    const tbody = document.getElementById('rec-items-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" class="ing-name" value="${name}" readonly style="border:none;background:transparent;width:100%;font-family:'Prompt';font-size:13px;"></td>
+        <td><input type="number" class="ing-qty" value="${qty}" step="0.01" min="0" style="width:100%;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:right;"></td>
+        <td><input type="text" class="ing-unit" value="${unit}" readonly style="border:none;background:transparent;width:100%;font-size:13px;color:#999;"></td>
+        <td style="text-align:center;">
+            <button type="button" onclick="openIngSelect(this.closest('tr'))" style="background:none;border:none;cursor:pointer;font-size:14px;">📋</button>
+            <button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#c62828;">✕</button>
+        </td>`;
+    tbody.appendChild(tr);
+}
+
+function openIngSelect(tr) {
+    editRowTarget = tr;
+    renderIngSelect(allIngs);
+    document.getElementById('ing-search').value = '';
+    document.getElementById('ing-select-modal').style.display = 'block';
+}
+function closeIngSelect() { document.getElementById('ing-select-modal').style.display = 'none'; editRowTarget = null; }
+
+function renderIngSelect(ings) {
+    const tbody = document.getElementById('ing-sel-body');
+    tbody.innerHTML = '';
+    ings.forEach(ing => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.onmouseover = () => tr.style.background = '#f5f5f5';
+        tr.onmouseout = () => tr.style.background = '';
+        tr.onclick = () => pickIng(ing);
+        tr.innerHTML = `<td style="padding:8px 10px;">${ing.name}</td><td style="padding:8px 10px;text-align:center;">${ing.unit||'-'}</td><td style="padding:8px 10px;text-align:right;">${fmt(ing.price)}</td><td style="padding:8px 10px;"></td>`;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterIngSelect() {
+    const q = document.getElementById('ing-search').value.toLowerCase();
+    renderIngSelect(allIngs.filter(ing => ing.name.toLowerCase().includes(q)));
+}
+
+function pickIng(ing) {
+    if (editRowTarget) {
+        editRowTarget.querySelector('.ing-name').value = ing.name;
+        // Use a hidden data attribute for ID
+        editRowTarget.dataset.ingId = ing.id;
+        editRowTarget.querySelector('.ing-unit').value = ing.unit || '';
+    } else {
+        addRow(ing.name, ing.id, 0, ing.unit || '');
+        // Set data attribute on last row
+        const rows = document.getElementById('rec-items-body').querySelectorAll('tr');
+        if (rows.length) rows[rows.length - 1].dataset.ingId = ing.id;
+    }
+    closeIngSelect();
+}
+
+async function saveRecipe(e) {
+    e.preventDefault();
+    const items = [];
+    document.querySelectorAll('#rec-items-body tr').forEach(tr => {
+        const ingId = tr.dataset.ingId || null;
+        const qty = parseFloat(tr.querySelector('.ing-qty')?.value) || 0;
+        if (ingId && qty > 0) items.push({ingredient: parseInt(ingId), quantity: qty});
+    });
+
+    const data = {
+        branch: parseInt(document.getElementById('rec-branch-f').value),
+        name: document.getElementById('rec-name').value.trim(),
+        description: document.getElementById('rec-desc').value.trim(),
+        items: items,
+    };
+    if (!data.branch || !data.name) { alert('กรุณากรอกข้อมูลให้ครบ'); return false; }
+
+    try {
+        const method = currentId ? 'PUT' : 'POST';
+        const url = currentId ? API+'/recipes/'+currentId+'/' : API+'/recipes/';
+        const r = await fetch(url, { method, headers: {'Content-Type':'application/json','X-CSRFToken':getCookie('csrftoken')}, body: JSON.stringify(data) });
+        if (!r.ok) { const err = await r.json(); throw new Error(JSON.stringify(err)); }
+        closeModal();
+        await init();
+    } catch(e) { console.error('saveRecipe:', e); alert('บันทึกไม่สำเร็จ: '+e.message); }
+    return false;
+}
+
+async function deleteRecipe(id) {
+    if (!confirm('ยืนยันการลบสูตร #' + id + '?')) return;
+    try {
+        const r = await fetch(API+'/recipes/'+id+'/', { method:'DELETE', headers: {'X-CSRFToken':getCookie('csrftoken')} });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        await init();
+    } catch(e) { console.error('deleteRecipe:', e); alert('ลบไม่สำเร็จ'); }
+}
+
+function closeModal() { document.getElementById('rec-modal').style.display = 'none'; }
+function resetFilters() { document.getElementById('rec-search').value = ''; document.getElementById('rec-branch').value = ''; document.getElementById('rec-status').value = ''; applyFilters(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeIngSelect(); } });
+['rec-modal','ing-select-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', function(ev) { if (ev.target === this) this.style.display = 'none'; });
+});
 </script>
 {% endblock %}

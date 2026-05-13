@@ -20,6 +20,8 @@ media/
 .env
 venv/
 env/
+py3/
+py3.bak/
 
 # IDE
 .vscode/
