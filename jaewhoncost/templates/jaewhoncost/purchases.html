@@ -183,6 +183,13 @@
     </div>
 </div>
 
+
+{% block extra_css %}
+<style>
+
+/* Mobile responsive fallbacks */ @media (max-width: 768px) { .form-row-inline, [style*="display: flex"], [style*="display:grid"] { flex-direction: column !important; grid-template-columns: 1fr !important; } [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; } .modal-form-grid, [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; } .btn-group, .action-buttons, [style*="gap:"] > .btn { margin: 4px 0; } input[type="text"], input[type="number"], input[type="date"], select, textarea { font-size: 16px !important; } } @media (max-width: 480px) { .card { padding: 14px !important; } }
+</style>
+{% endblock %}
 {% endblock %}
 
 {% block extra_js %}
@@ -482,7 +489,7 @@ async function viewPurchase(id) {
         let itemsHTML = '';
         if (items.length > 0) {
             itemsHTML = `
-                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <div class="table-responsive"><table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
                     <thead>
                         <tr style="background: #f8f9fa;">
                             <th style="padding: 12px;">วัตถุดิบ</th>
@@ -507,7 +514,7 @@ async function viewPurchase(id) {
                             <td style="padding: 12px; text-align: right;">฿${parseFloat(purchase.total_amount).toFixed(2)}</td>
                         </tr>
                     </tbody>
-                </table>
+                </table></div>
             `;
         }
         

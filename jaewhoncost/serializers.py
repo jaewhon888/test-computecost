@@ -5,7 +5,10 @@ from .models import Owner, Branch, Ingredient, Recipe, RecipeItem, Menu, Sale, S
 class OwnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Owner
-        fields = ['id', 'name', 'email', 'phone', 'address', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'email', 'phone', 'address', 'logo', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'logo': {'required': False, 'allow_null': True},
+        }
 
 
 class BranchSerializer(serializers.ModelSerializer):
@@ -49,10 +52,23 @@ class RecipeSerializer(serializers.ModelSerializer):
 class MenuSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
     recipe_name = serializers.CharField(source='recipe.name', read_only=True)
+    food_cost_percent = serializers.SerializerMethodField()
     
     class Meta:
         model = Menu
-        fields = ['id', 'branch', 'branch_name', 'recipe', 'recipe_name', 'name', 'price', 'description', 'created_at', 'updated_at']
+        fields = ['id', 'branch', 'branch_name', 'recipe', 'recipe_name', 'name', 'price', 'description', 'food_cost_percent', 'created_at', 'updated_at']
+    
+    def get_food_cost_percent(self, obj):
+        """คำนวณ Food Cost % จากต้นทุนวัตถุดิบในสูตร / ราคาขาย*100"""
+        if not obj.recipe or not obj.price:
+            return None
+        total_cost = 0
+        for item in obj.recipe.items.all():
+            total_cost += float(item.quantity) * float(item.ingredient.price)
+        menu_price = float(obj.price)
+        if menu_price > 0:
+            return round(total_cost / menu_price * 100, 1)
+        return None
 
 
 class SaleSerializer(serializers.ModelSerializer):

@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{% block title %}Restaurant Management System{% endblock %}</title>
     {% load static %}
     <link rel="stylesheet" href="{% static 'jaewhoncost/css/style.css' %}">
@@ -11,32 +11,60 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Hamburger Button (mobile only) -->
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+    </button>
+
+    <!-- Overlay (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="container">
         <!-- Sidebar Navigation -->
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="{% url "dashboard" %}"><img src="{% static "jaewhoncost/images/logo.svg" %}" alt="Restaurant Logo" class="logo-img"></a>
+                <a href="{% url "dashboard" %}" class="sidebar-brand">
+                    <span class="brand-main">ระบบร้านอาหาร</span>
+                    <span class="brand-sub">By เต็ง888</span>
+                </a>
             </div>
             <ul class="nav-menu">
-                <li><a href="/" class="nav-link">Dashboard</a></li>
-                <li><a href="/ingredients/" class="nav-link">Ingredients</a></li>
-                <li><a href="/recipes/" class="nav-link">Recipes</a></li>
-                <li><a href="/menus/" class="nav-link">Menus</a></li>
-                <li><a href="/cost-calculation/" class="nav-link">คำนวณต้นทุน</a></li>
-                <li><a href="/sales/" class="nav-link">Sales</a></li>
-                <li><a href="/branches/" class="nav-link">Branches</a></li>
-                <li><a href="/owners/" class="nav-link">Owners</a></li>
-                <li><a href="/settings/" class="nav-link">Settings</a></li>
-                <li><a href="/import-data/" class="nav-link">นำเข้าข้อมูล</a></li>
+                <li><a href="/" class="nav-link">📊 Dashboard</a></li>
+                <li><a href="/ingredients/" class="nav-link">🛒 Ingredients</a></li>
+                <li><a href="/recipes/" class="nav-link">🍽️ Recipes</a></li>
+                <li><a href="/menus/" class="nav-link">📋 Menus</a></li>
+                <li><a href="/cost-calculation/" class="nav-link">🧮 คำนวณต้นทุน</a></li>
+                <li><a href="/sales/" class="nav-link">💰 Sales</a></li>
+                <li><a href="/purchases/" class="nav-link">🛍️ Purchases</a></li>
+                <li><a href="/reports/" class="nav-link">📊 รายงานและส่งออก</a></li>
+                <li><a href="/price-history-report/" class="nav-link">📈 ประวัติราคา</a></li>
+                <li><a href="/branches/" class="nav-link">🏪 Branches</a></li>
+                <li><a href="/owners/" class="nav-link">👤 Owners</a></li>
+                <li><a href="/settings/" class="nav-link">⚙️ Settings</a></li>
+                <li><a href="/import-data/" class="nav-link">📥 นำเข้าข้อมูล</a></li>
             </ul>
         </nav>
 
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                <div class="top-bar-left">
+                    <!-- Owner logo(s) in header -->
+                    {% if owner_logos %}
+                    <div class="header-logos">
+                        {% for owner in owner_logos %}
+                        {% if owner.logo %}
+                        <img src="{{ owner.logo.url }}" alt="{{ owner.name }}" class="owner-logo-inline" title="{{ owner.name }}">
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+                </div>
                 <div class="user-profile">
-                    <span>Admin User</span>
+                    <span>Admin</span>
                     <a href="/admin/logout/" class="btn-logout">Logout</a>
                 </div>
             </header>
@@ -46,7 +74,35 @@
             </div>
         </main>
     </div>
+
+    <script>
+    // ===== Responsive Sidebar Toggle =====
+    (function() {
+        const btn = document.getElementById('hamburgerBtn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        if (btn && sidebar && overlay) {
+            btn.addEventListener('click', function() {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('active');
+                btn.classList.toggle('active');
+            });
+            overlay.addEventListener('click', function() {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                btn.classList.remove('active');
+            });
+        }
+        // Active nav highlight
+        const navLinks = document.querySelectorAll('.nav-link');
+        const currentPath = window.location.pathname;
+        navLinks.forEach(function(link) {
+            if (link.getAttribute('href') === currentPath) {
+                link.classList.add('active-nav');
+            }
+        });
+    })();
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-

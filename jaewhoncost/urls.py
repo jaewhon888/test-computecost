@@ -7,7 +7,7 @@ from .views import (
     PriceHistoryViewSet, PurchaseViewSet, PurchaseItemViewSet,
     DashboardView, IngredientsView, RecipesView, MenusView,
     PurchasesView, PriceHistoryReportView, SalesView, BranchesView, OwnersView, SettingsView,
-    CostCalculationView, CostCalculatorFormView, ImportDataView
+    CostCalculationView, CostCalculatorFormView, ImportDataView, ReportsView
 )
 
 router = DefaultRouter()
@@ -39,4 +39,5 @@ urlpatterns = [
     path('cost-calculation/', CostCalculationView.as_view(), name='cost_calculation'),
     path('cost-calculator/', CostCalculatorFormView.as_view(), name='cost_calculator'),
     path('profit-report/', SaleViewSet.as_view({'get': 'profit_report'}), name='profit_report'),
+    path('reports/', ReportsView.as_view(), name='reports'),
 ]

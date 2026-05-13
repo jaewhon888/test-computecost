@@ -7,6 +7,7 @@ class Owner(models.Model):
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=20)
     address = models.TextField()
+    logo = models.ImageField(upload_to='logos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

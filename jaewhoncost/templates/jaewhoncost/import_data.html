@@ -1,0 +1,561 @@
+{% extends 'jaewhoncost/base.html' %}
+{% load static %}
+
+{% block title %}📥 นำเข้าข้อมูล (Import Data){% endblock %}
+{% block page_title %}📥 นำเข้าข้อมูล{% endblock %}
+
+{% block content %}
+<style>
+.import-page { font-family: 'Prompt', sans-serif; }
+
+/* Upload Zone */
+.upload-zone {
+    border: 3px dashed var(--light-gold);
+    border-radius: 16px;
+    padding: 50px 30px;
+    text-align: center;
+    background: #faf8f0;
+    margin-bottom: 24px;
+    transition: all 0.3s;
+    cursor: pointer;
+    position: relative;
+}
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--gold);
+    background: #fff9e6;
+}
+.upload-zone input[type="file"] {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+.upload-zone .uz-icon { font-size: 56px; margin-bottom: 10px; }
+.upload-zone .uz-text { font-size: 18px; color: var(--navy); font-weight: 500; }
+.upload-zone .uz-hint { font-size: 13px; color: #888; margin-top: 8px; }
+
+/* File info after selected */
+.file-info {
+    display: none;
+    background: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 14px;
+    border-left: 4px solid var(--gold);
+}
+.file-info.show { display: block; }
+.file-info .fi-name { font-weight: 600; color: var(--navy); }
+.file-info .fi-size { font-size: 13px; color: #888; margin-top: 4px; }
+
+/* Form sections */
+.form-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+}
+.form-section h3 {
+    font-size: 16px;
+    color: var(--navy);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.form-group { margin-bottom: 14px; }
+.form-group label {
+    font-size: 14px;
+    color: var(--navy);
+    font-weight: 500;
+    margin-bottom: 6px;
+    display: block;
+}
+.form-group small { font-size: 12px; color: #888; }
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: 'Prompt', sans-serif;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 6px rgba(212,175,55,0.2);
+}
+
+/* Template cards */
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+}
+.template-card {
+    background: #fafafa;
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s;
+}
+.template-card:hover {
+    background: #fff9e6;
+    border-color: var(--gold);
+}
+.template-card .tc-icon { font-size: 28px; margin-bottom: 6px; }
+.template-card .tc-name { font-size: 13px; font-weight: 600; color: var(--navy); }
+.template-card .tc-desc { font-size: 11px; color: #888; margin-top: 4px; }
+
+/* Preview table */
+.preview-section {
+    display: none;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+}
+.preview-section.show { display: block; }
+.preview-section h3 {
+    font-size: 16px; color: var(--navy); margin-bottom: 14px;
+}
+.preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.preview-table th { background: var(--navy); color: white; padding: 10px; text-align: left; }
+.preview-table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; }
+.preview-table tr:hover { background: #faf8f0; }
+
+/* Action buttons */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Status messages */
+.import-status {
+    display: none;
+    background: white;
+    border-radius: 10px;
+    padding: 18px;
+    margin-top: 20px;
+    font-size: 14px;
+}
+.import-status.show { display: block; }
+.import-status.success { background: #e8f5e9; border-left: 4px solid #4caf50; }
+.import-status.error { background: #fce4ec; border-left: 4px solid #e53935; }
+
+/* Mode selector */
+.mode-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+.mode-card {
+    padding: 18px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.mode-card.selected {
+    border-color: var(--gold);
+    background: #fff9e6;
+}
+.mode-card .mc-icon { font-size: 32px; margin-bottom: 8px; }
+.mode-card .mc-name { font-weight: 600; color: var(--navy); }
+.mode-card .mc-desc { font-size: 12px; color: #888; margin-top: 4px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mode-cards { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .template-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+
+<div class="import-page">
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="uploadZone">
+        <div id="uploadPlaceholder">
+            <input type="file" id="fileInput" accept=".csv,.xls,.xlsx">
+            <div class="uz-icon">📁</div>
+            <div class="uz-text">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</div>
+            <div class="uz-hint">รองรับ: CSV, Excel (.xls, .xlsx) · สูงสุด 10MB</div>
+        </div>
+        <div class="file-info" id="fileInfo">
+            <div class="fi-name" id="fileName"></div>
+            <div class="fi-size" id="fileSize"></div>
+        </div>
+    </div>
+
+    <!-- Template Downloads -->
+    <div class="form-section">
+        <h3>📦 ดาวน์โหลดไฟล์ต้นแบบ</h3>
+        <p style="font-size:14px;color:#888;margin-bottom:10px;">ดาวน์โหลดไฟล์ต้นแบบ กรอกข้อมูล แล้วอัปโหลดกลับมา</p>
+        <div class="template-grid">
+            <div class="template-card" onclick="downloadTemplate('ingredient')">
+                <div class="tc-icon">🛒</div>
+                <div class="tc-name">วัตถุดิบ (Ingredient)</div>
+                <div class="tc-desc">ชื่อ, สาขา, ราคา, หน่วย, สต็อก</div>
+                <div class="tc-desc" style="color:#D4AF37;font-weight:600;">📝 มี 10 รายการตัวอย่าง</div>
+            </div>
+            <div class="template-card" onclick="downloadTemplate('recipe')">
+                <div class="tc-icon">🍽️</div>
+                <div class="tc-name">สูตรอาหาร (Recipe)</div>
+                <div class="tc-desc">ชื่อสูตร, วัตถุดิบ, ปริมาณ</div>
+                <div class="tc-desc" style="color:#D4AF37;font-weight:600;">📝 มี 12 รายการตัวอย่าง (2 สูตร)</div>
+            </div>
+            <div class="template-card" onclick="downloadTemplate('menu')">
+                <div class="tc-icon">📋</div>
+                <div class="tc-name">เมนู (Menu)</div>
+                <div class="tc-desc">ชื่อเมนู, ราคา, สูตรที่ผูก</div>
+                <div class="tc-desc" style="color:#D4AF37;font-weight:600;">📝 มี 4 รายการตัวอย่าง</div>
+            </div>
+            <div class="template-card" onclick="downloadTemplate('sale')">
+                <div class="tc-icon">💰</div>
+                <div class="tc-name">ยอดขาย (Sale)</div>
+                <div class="tc-desc">เมนู, จำนวน, ราคา, วิธีจ่าย</div>
+                <div class="tc-desc" style="color:#D4AF37;font-weight:600;">📝 มี 5 รายการตัวอย่าง</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Options -->
+    <div class="form-section">
+        <h3>⚙️ ตัวเลือกการนำเข้า</h3>
+
+        <!-- Mode Selection -->
+        <div class="mode-cards">
+            <div class="mode-card selected" data-mode="inventory" onclick="selectMode(this)">
+                <div class="mc-icon">📊</div>
+                <div class="mc-name">ปรับสต็อกสินค้า</div>
+                <div class="mc-desc">ปรับจำนวนวัตถุดิบตามไฟล์</div>
+            </div>
+            <div class="mode-card" data-mode="purchase" onclick="selectMode(this)">
+                <div class="mc-icon">🛍️</div>
+                <div class="mc-name">สร้างใบจัดซื้อ</div>
+                <div class="mc-desc">สร้างออเดอร์จัดซื้ออัตโนมัติ</div>
+            </div>
+            <div class="mode-card" data-mode="import_only" onclick="selectMode(this)">
+                <div class="mc-icon">📥</div>
+                <div class="mc-name">นำเข้าข้อมูลอย่างเดียว</div>
+                <div class="mc-desc">เพิ่มวัตถุดิบ/สูตร/เมนูใหม่</div>
+            </div>
+        </div>
+        <input type="hidden" id="mode" value="inventory">
+
+        <div style="margin-top:14px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>สาขา *</label>
+                    <select id="branch" required>
+                        <option value="">-- เลือกสาขา --</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}">{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>ตัวคั่น CSV</label>
+                    <select id="delimiter">
+                        <option value=",">, จุลภาค</option>
+                        <option value=";">; Semicolon</option>
+                        <option value="	">แท็บ (Tab)</option>
+                        <option value="|">| Pipeline</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="purchaseFields" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ผู้จัดจำหน่าย</label>
+                        <input type="text" id="supplier" placeholder="เช่น บริษัท ABC จำกัด">
+                    </div>
+                    <div class="form-group">
+                        <label>เลขที่ใบแจ้งหนี้</label>
+                        <input type="text" id="invoice" placeholder="INV-2024-001">
+                    </div>
+                </div>
+            </div>
+
+            <div id="importFields" style="display:none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ประเภทข้อมูล</label>
+                        <select id="importType">
+                            <option value="ingredient">วัตถุดิบ (Ingredient)</option>
+                            <option value="recipe">สูตรอาหาร (Recipe)</option>
+                            <option value="menu">เมนู (Menu)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="preview-section" id="previewSection">
+        <h3>🔍 ตัวอย่างข้อมูล (<span id="previewCount">0</span> รายการ)</h3>
+        <div class="table-responsive">
+            <table class="preview-table" id="previewTable"></table>
+        </div>
+    </div>
+
+    <!-- Action -->
+    <div class="action-buttons">
+        <button class="btn btn-primary" id="btnPreview" onclick="previewFile()">🔍 ดูตัวอย่าง</button>
+        <button class="btn btn-primary" id="btnImport" onclick="importData()" disabled>📥 นำเข้าข้อมูล</button>
+        <button class="btn btn-secondary" onclick="resetForm()">🔄 ล้างฟอร์ม</button>
+    </div>
+
+    <!-- Status -->
+    <div class="import-status" id="importStatus"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (max-width: 768px) {
+    .form-row, .mode-cards, .template-grid { grid-template-columns: 1fr !important; }
+    input[type="text"], input[type="number"], input[type="date"], select, textarea {
+        font-size: 16px !important;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const API = window.location.origin + '/api';
+const JSON_HEADERS = { 'Accept': 'application/json' };
+let selectedFile = null;
+
+// File upload
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect(e.dataTransfer.files[0]);
+    }
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFileSelect(fileInput.files[0]);
+});
+
+function handleFileSelect(file) {
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showStatus('error', 'ไฟล์ใหญ่เกินไป (สูงสุด 10MB)');
+        return;
+    }
+    selectedFile = file;
+    document.getElementById('fileName').textContent = '📄 ' + file.name;
+    document.getElementById('fileSize').textContent = 'ขนาด: ' + (file.size / 1024).toFixed(1) + ' KB';
+    document.getElementById('fileInfo').classList.add('show');
+    document.getElementById('btnImport').disabled = true;
+}
+
+function selectMode(el) {
+    document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('mode').value = el.dataset.mode;
+    const mode = el.dataset.mode;
+    document.getElementById('purchaseFields').style.display = mode === 'purchase' ? 'block' : 'none';
+    document.getElementById('importFields').style.display = mode === 'import_only' ? 'block' : 'none';
+}
+
+function downloadTemplate(type) {
+    const templates = {
+        ingredient: `id,branch_id,name,price,unit,stock
+1,สาขาหลัก,หมูสับ,120.00,kg,10
+2,สาขาหลัก,ใบกะเพรา,30.00,กรัม,500
+3,สาขาหลัก,ข้าวสาร,500.00,kg,20
+4,สาขาหลัก,น้ำปลา,45.00,ขวด,30
+5,สาขาหลัก,น้ำมันพืช,80.00,ลิตร,15
+6,สาขาหลัก,พริกขี้หนู,60.00,กรัม,200
+7,สาขาหลัก,กระเทียม,70.00,กรัม,300
+8,สาขาหลัก,ซอสหอยนางรม,35.00,ml,100
+9,สาขาหลัก,ไข่ไก่,4.50,ฟอง,120
+10,สาขาหลัก,ผงปรุงรส,25.00,กรัม,150`,
+
+        recipe: `branch_id,recipe_name,ingredient_name,quantity
+1,ผัดกะเพราหมูสับ,หมูสับ,150
+1,ผัดกะเพราหมูสับ,ใบกะเพรา,20
+1,ผัดกะเพราหมูสับ,พริกขี้หนู,10
+1,ผัดกะเพราหมูสับ,กระเทียม,10
+1,ผัดกะเพราหมูสับ,ซอสหอยนางรม,15
+1,ผัดกะเพราหมูสับ,ผงปรุงรส,5
+1,ข้าวผัดหมู,หมูสับ,100
+1,ข้าวผัดหมู,ข้าวสาร,200
+1,ข้าวผัดหมู,ไข่ไก่,1
+1,ข้าวผัดหมู,น้ำมันพืช,20
+1,ข้าวผัดหมู,กระเทียม,10
+1,ข้าวผัดหมู,ผงปรุงรส,5`,
+
+        menu: `branch_id,menu_name,recipe_name,price
+1,ผัดกะเพราหมูสับ + ข้าว,ผัดกะเพราหมูสับ,55
+1,ข้าวผัดหมู,ข้าวผัดหมู,50
+1,ข้าวกะเพราหมูสับไข่ดาว,ผัดกะเพราหมูสับ,65
+1,ข้าวกะเพราหมูสับไข่ดาวพิเศษ,ผัดกะเพราหมูสับ,80`,
+
+        sale: `branch_id,menu_name,quantity,payment_method
+1,ผัดกะเพราหมูสับ + ข้าว,5,cash
+1,ข้าวกะเพราหมูสับไข่ดาว,3,promptpay
+1,ข้าวผัดหมู,2,cash
+1,ข้าวกะเพราหมูสับไข่ดาวพิเศษ,1,credit_card
+1,ผัดกะเพราหมูสับ + ข้าว,10,promptpay`
+    };
+    const content = '\ufeff' + (templates[type] || '');
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'template_' + type + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('info', 'ดาวน์โหลด template ' + type + ' เรียบร้อยแล้ว — มีข้อมูลตัวอย่าง ' + getTemplateRowCounts(type) + ' รายการ ตรวจสอบใน Downloads ได้เลยคะ');
+}
+
+function getTemplateRowCounts(type) {
+    const counts = { ingredient: 10, recipe: 12, menu: 4, sale: 5 };
+    return counts[type] || 0;
+}
+
+function previewFile() {
+    if (!selectedFile) { showStatus('error', 'กรุณาเลือกไฟล์ก่อน'); return; }
+    const branchId = document.getElementById('branch').value;
+    if (!branchId) { showStatus('error', 'กรุณาเลือกสาขา'); return; }
+    showStatus('info', 'กำลังอ่านตัวอย่างข้อมูล...');
+
+    // For CSV files: read client-side
+    if (selectedFile.name.endsWith('.csv')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const text = e.target.result;
+                const delim = document.getElementById('delimiter').value;
+                const rows = text.trim().split('\n').map(r => r.split(delim));
+                renderPreview(rows);
+            } catch(err) { showStatus('error', 'อ่านไฟล์ไม่สำเร็จ: ' + err.message); }
+        };
+        reader.readAsText(selectedFile, 'UTF-8');
+    } else {
+        showStatus('error', 'ไฟล์ Excel ไม่สามารถดูตัวอย่างได้ ต้องอัปโหลดและนำเข้าเท่านั้น');
+        document.getElementById('btnImport').disabled = false;
+    }
+}
+
+function renderPreview(rows) {
+    const section = document.getElementById('previewSection');
+    const table = document.getElementById('previewTable');
+    const maxRows = Math.min(rows.length, 11);
+
+    document.getElementById('previewCount').textContent = rows.length - 1;
+
+    let html = '<thead><tr>';
+    rows[0].forEach(h => html += '<th>' + esc(h.trim()) + '</th>');
+    html += '</tr></thead><tbody>';
+
+    for (let i = 1; i < maxRows; i++) {
+        html += '<tr>';
+        rows[i].forEach(c => html += '<td>' + esc(c.trim()) + '</td>');
+        html += '</tr>';
+    }
+    if (rows.length > maxRows) {
+        html += '<tr><td colspan="' + rows[0].length + '" style="text-align:center;color:#888;">...และอีก ' + (rows.length - maxRows) + ' รายการ...</td></tr>';
+    }
+    html += '</tbody>';
+    table.innerHTML = html;
+    section.classList.add('show');
+    document.getElementById('btnImport').disabled = false;
+    showStatus('info', 'อ่านข้อมูลพบ ' + (rows.length - 1) + ' รายการ ตรวจสอบแล้วกด "นำเข้าข้อมูล" ได้เลยคะ');
+}
+
+async function importData() {
+    if (!selectedFile) { showStatus('error', 'กรุณาเลือกไฟล์'); return; }
+    const branchId = document.getElementById('branch').value;
+    if (!branchId) { showStatus('error', 'กรุณาเลือกสาขา'); return; }
+
+    const mode = document.getElementById('mode').value;
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('mode', mode);
+    formData.append('branch', branchId);
+    formData.append('delimiter', document.getElementById('delimiter').value);
+
+    if (mode === 'purchase') {
+        formData.append('supplier', document.getElementById('supplier').value);
+        formData.append('invoice', document.getElementById('invoice').value);
+    }
+
+    showStatus('info', '⏳ กำลังนำเข้าข้อมูล...');
+    document.getElementById('btnImport').disabled = true;
+
+    try {
+        const r = await fetch(window.location.origin + '/import-data/', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        const result = await r.json();
+        if (r.ok) {
+            showStatus('success', '✅ นำเข้าสำเร็จ: สร้าง ' + (result.created || 0) + ' รายการ, อัปเดต ' + (result.updated || 0) + ' รายการ' + (result.errors ? '\n❌ Error: ' + result.errors.join(', ') : ''));
+            resetForm();
+        } else {
+            showStatus('error', '❌ เกิดข้อผิดพลาด: ' + (result.error || JSON.stringify(result)));
+        }
+    } catch(e) {
+        showStatus('error', '❌ ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+    }
+    document.getElementById('btnImport').disabled = false;
+}
+
+function resetForm() {
+    selectedFile = null;
+    fileInput.value = '';
+    document.getElementById('fileInfo').classList.remove('show');
+    document.getElementById('previewSection').classList.remove('show');
+    document.getElementById('importStatus').classList.remove('show');
+    document.getElementById('btnImport').disabled = true;
+}
+
+function showStatus(type, msg) {
+    const el = document.getElementById('importStatus');
+    el.textContent = msg;
+    el.className = 'import-status show ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function getCookie(name) {
+    let val = null;
+    if (document.cookie) document.cookie.split(';').forEach(c => { c = c.trim(); if (c.startsWith(name + '=')) val = decodeURIComponent(c.slice(name.length + 1)); });
+    return val;
+}
+</script>
+{% endblock %}

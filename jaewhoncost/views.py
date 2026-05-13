@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Owner, Branch, Ingredient, Recipe, RecipeItem, Menu, Sale, Setting, PriceHistory, Purchase, PurchaseItem
 from .serializers import (
     OwnerSerializer, BranchSerializer, IngredientSerializer,
@@ -18,11 +19,6 @@ from .forms import CostCalculationForm
 import json
 
 # ViewSets
-class OwnerViewSet(viewsets.ModelViewSet):
-    queryset = Owner.objects.all()
-    serializer_class = OwnerSerializer
-
-
 class BranchViewSet(viewsets.ModelViewSet):
     queryset = Branch.objects.all()
     serializer_class = BranchSerializer
@@ -34,18 +30,126 @@ class BranchViewSet(viewsets.ModelViewSet):
         ingredients = branch.ingredients.all()
         serializer = IngredientSerializer(ingredients, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Return stats for a branch: recipes, menus, ingredients, sales, purchases"""
+        from django.db.models import Count, Sum, Avg
+        branch = self.get_object()
+        
+        total_ingredients = branch.ingredients.count()
+        total_recipes = branch.recipes.count()
+        total_menus = branch.menus.count()
+        total_sales = branch.sales.count()
+        total_purchases = branch.purchases.count()
+        
+        total_revenue = sum((s.total_price or 0) for s in branch.sales.all())
+        total_cost = sum((p.total_amount or 0) for p in branch.purchases.all())
+        profit = total_revenue - total_cost
+        
+        # Stock summary
+        total_stock_value = sum(
+            (i.price * i.stock) for i in branch.ingredients.all()
+        )
+        low_stock = branch.ingredients.filter(stock__lte=5, stock__gt=0).count()
+        out_of_stock = branch.ingredients.filter(stock=0).count()
+        
+        # Top selling menu
+        top_menu = branch.sales.values('menu__name').annotate(
+            qty=Count('id'), revenue=Sum('total_price')
+        ).order_by('-qty')[:1].first()
+        
+        return Response({
+            'branch_name': branch.name,
+            'owner_name': branch.owner.name,
+            'total_ingredients': total_ingredients,
+            'total_recipes': total_recipes,
+            'total_menus': total_menus,
+            'total_sales': total_sales,
+            'total_purchases': total_purchases,
+            'total_revenue': float(total_revenue),
+            'total_cost': float(total_cost),
+            'profit': float(profit),
+            'total_stock_value': float(total_stock_value),
+            'low_stock_count': low_stock,
+            'out_of_stock_count': out_of_stock,
+            'top_menu': top_menu['menu__name'] if top_menu else None,
+            'top_menu_qty': top_menu['qty'] if top_menu else 0,
+        })
 
 
 class IngredientViewSet(viewsets.ModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     pagination_class = None
+
+
+class OwnerViewSet(viewsets.ModelViewSet):
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    queryset = Owner.objects.all()
+    serializer_class = OwnerSerializer
+    
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        """Return stats for an owner: branches, total sales, revenue, etc."""
+        from django.db.models import Count, Sum
+        owner = self.get_object()
+        
+        total_branches = owner.branches.count()
+        
+        total_ingredients = sum(b.ingredients.count() for b in owner.branches.all())
+        total_recipes = sum(b.recipes.count() for b in owner.branches.all())
+        total_menus = sum(b.menus.count() for b in owner.branches.all())
+        
+        total_sales = 0
+        total_revenue = 0
+        for b in owner.branches.all():
+            total_sales += b.sales.count()
+            total_revenue += sum((s.total_price or 0) for s in b.sales.all())
+        
+        total_cost = sum(
+            (p.total_amount or 0) for b in owner.branches.all()
+            for p in b.purchases.all()
+        )
+        profit = total_revenue - total_cost
+        
+        # Branch breakdown
+        branches_summary = []
+        for b in owner.branches.all():
+            b_revenue = sum((s.total_price or 0) for s in b.sales.all())
+            b_cost = sum((p.total_amount or 0) for p in b.purchases.all())
+            branches_summary.append({
+                'id': b.id,
+                'name': b.name,
+                'address': b.address,
+                'phone': b.phone,
+                'total_recipes': b.recipes.count(),
+                'total_menus': b.menus.count(),
+                'total_ingredients': b.ingredients.count(),
+                'total_sales': b.sales.count(),
+                'revenue': float(b_revenue),
+                'cost': float(b_cost),
+                'profit': float(b_revenue - b_cost),
+            })
+        
+        return Response({
+            'owner_name': owner.name,
+            'email': owner.email,
+            'phone': owner.phone,
+            'total_branches': total_branches,
+            'total_ingredients': total_ingredients,
+            'total_recipes': total_recipes,
+            'total_menus': total_menus,
+            'total_sales': total_sales,
+            'total_revenue': float(total_revenue),
+            'total_cost': float(total_cost),
+            'profit': float(profit),
+            'branches': branches_summary,
+        })
     
     def get_queryset(self):
-        branch_id = self.request.query_params.get('branch_id')
-        if branch_id:
-            return Ingredient.objects.filter(branch_id=branch_id)
-        return Ingredient.objects.all()
+        """Return Owner queryset, optionally filtered by branch_id"""
+        return Owner.objects.all()
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -714,20 +818,73 @@ class DashboardView(TemplateView):
     template_name = 'jaewhoncost/dashboard.html'
     
     def get_context_data(self, **kwargs):
+        from decimal import Decimal
+        from datetime import timedelta
+        from django.utils import timezone
+        
         context = super().get_context_data(**kwargs)
-        from .models import Recipe, Menu, Ingredient, Purchase
+        from .models import Recipe, Menu, Ingredient, Purchase, Sale, Branch
         
         # ข้อมูลสำหรับ Dashboard
         recipes = Recipe.objects.all().prefetch_related('items__ingredient', 'menu_set')[:5]
         recent_sales = Sale.objects.all().select_related('menu')[:10]
+        recent_purchases = Purchase.objects.all().select_related('branch')[:5]
+        
+        # ยอดรวม
+        total_recipes = Recipe.objects.count()
+        total_menus = Menu.objects.count()
+        total_ingredients = Ingredient.objects.count()
+        total_sales_count = Sale.objects.count()
+        total_purchases = Purchase.objects.count()
+        
+        # คำนวณรายรับรวมจาก sales
+        total_revenue = sum(
+            (s.total_price or 0) for s in Sale.objects.all()
+        )
+        
+        # คำนวณต้นทุนรวมจาก purchases
+        total_cost = sum(
+            (p.total_amount or 0) for p in Purchase.objects.all()
+        )
+        
+        # กำไร = รายได้ - ต้นทุน
+        total_profit = total_revenue - total_cost
+        
+        # ยอดขายเดือนนี้
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_sales = Sale.objects.filter(sale_date__gte=month_start)
+        monthly_revenue = sum((s.total_price or 0) for s in month_sales)
+        month_purchases = Purchase.objects.filter(purchase_date__gte=month_start)
+        monthly_cost = sum((p.total_amount or 0) for p in month_purchases)
+        monthly_profit = monthly_revenue - monthly_cost
+        
+        # เมนูขายดี (top 5)
+        from django.db.models import Count, Sum
+        top_menus = Sale.objects.values('menu__name').annotate(
+            qty=Count('id'),
+            revenue=Sum('total_price')
+        ).order_by('-qty')[:5]
+        
+        # จำนวน branches
+        total_branches = Branch.objects.count()
         
         context['recent_recipes'] = recipes
         context['recent_sales'] = recent_sales
-        context['total_recipes'] = Recipe.objects.count()
-        context['total_menus'] = Menu.objects.count()
-        context['total_ingredients'] = Ingredient.objects.count()
-        context['total_sales'] = Sale.objects.count()
-        context['total_purchases'] = Purchase.objects.count()
+        context['recent_purchases'] = recent_purchases
+        context['total_recipes'] = total_recipes
+        context['total_menus'] = total_menus
+        context['total_ingredients'] = total_ingredients
+        context['total_sales'] = total_sales_count
+        context['total_purchases'] = total_purchases
+        context['total_branches'] = total_branches
+        context['total_revenue'] = total_revenue
+        context['total_cost'] = total_cost
+        context['total_profit'] = total_profit
+        context['monthly_revenue'] = monthly_revenue
+        context['monthly_cost'] = monthly_cost
+        context['monthly_profit'] = monthly_profit
+        context['top_menus'] = top_menus
         
         return context
 
@@ -789,31 +946,18 @@ class SettingsView(TemplateView):
 
 
 class CostCalculationView(TemplateView):
-    """หน้าคำนวณต้นทุนแบบเต็มรูปแบบพร้อมฟอร์ม"""
-    template_name = 'jaewhoncost/cost_calculation.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = CostCalculationForm()
-        return context
-
-
-class CostCalculatorFormView(TemplateView):
-    """หน้าฟอร์มหลักสำหรับคำนวณต้นทุนแบบ Real-time"""
+    """หน้าคำนวณต้นทุนแบบเต็มรูปแบบ (SPA) — use cost_calculator_form.html"""
     template_name = 'jaewhoncost/cost_calculator_form.html'
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['form'] = CostCalculationForm()
-        
-        # ดึงข้อมูลสูตรทั้งหมดสำหรับแสดงในหน้า
-        from .models import Recipe
-        context['recipes'] = Recipe.objects.all().prefetch_related('items__ingredient', 'branch')
-        
         return context
 
 
-# ===== Purchase ViewSets =====
+class CostCalculatorFormView(TemplateView):
+    """Deprecated: redirects to CostCalculationView"""
+    template_name = 'jaewhoncost/cost_calculator_form.html'
+
 
 class ImportDataView(TemplateView):
     template_name = 'jaewhoncost/import_data.html'
@@ -826,52 +970,301 @@ class ImportDataView(TemplateView):
         return context
 
     def post(self, request, *args, **kwargs):
-        from django.core.management import call_command
-        from django.contrib import messages
-        from django.shortcuts import redirect
         import tempfile
         import os
+        import csv
+        from decimal import Decimal, InvalidOperation
+        from django.contrib import messages
 
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
+            if self.request.content_type and 'json' in self.request.content_type:
+                from django.http import JsonResponse
+                return JsonResponse({'error': 'กรุณาเลือกไฟล์'}, status=400)
             messages.error(request, 'กรุณาเลือกไฟล์')
             return self.get(request, *args, **kwargs)
 
-        mode = request.POST.get('mode')
-        branch = request.POST.get('branch')
-        supplier = request.POST.get('supplier')
-        invoice = request.POST.get('invoice')
-        date_str = request.POST.get('date')
+        mode = request.POST.get('mode', 'import_only')
+        branch_id = request.POST.get('branch')
         delimiter = request.POST.get('delimiter', ',')
+        is_api = 'application/json' in request.content_type if request.content_type else False
 
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-            for chunk in uploaded_file.chunks():
-                tmp.write(chunk)
-            tmp_path = tmp.name
-
+        # Read CSV content
         try:
-            # Call the management command
-            call_command(
-                'import_data',
-                tmp_path,
-                mode=mode,
-                branch=branch,
-                supplier=supplier,
-                invoice=invoice,
-                date=date_str,
-                delimiter=delimiter,
-                stdout=self.stdout,  # This won't capture well; we'll rely on messages
-                stderr=self.stderr,
-            )
-            messages.success(request, 'นำเข้าข้อมูลสำเร็จ')
-        except Exception as e:
-            messages.error(request, f'เกิดข้อผิดพลาด: {e}')
-        finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            content = uploaded_file.read().decode('utf-8-sig')  # handles BOM
+        except UnicodeDecodeError:
+            content = uploaded_file.read().decode('cp874')  # Windows Thai
 
-        return redirect('import-data')
+        lines = content.strip().split('\n')
+        if len(lines) < 2:
+            if is_api:
+                from django.http import JsonResponse
+                return JsonResponse({'error': 'ไฟล์ไม่มีข้อมูล'}, status=400)
+            messages.error(request, 'ไฟล์ไม่มีข้อมูล')
+            return self.get(request, *args, **kwargs)
+
+        # Parse header + data rows
+        delimiter_map = {'comma': ',', 'semicolon': ';', 'tab': '\t', 'pipe': '|'}
+        delim = delimiter_map.get(delimiter, delimiter)
+
+        reader = csv.DictReader(lines, delimiter=delim)
+        rows = list(reader)
+
+        created = 0
+        updated = 0
+        errors = []
+
+        if mode in ('inventory', 'import_only') and mode != 'purchase':
+            # For inventory mode: update ingredient stock or create ingredients
+            for i, row in enumerate(rows):
+                try:
+                    name = row.get('name', '').strip()
+                    if not name:
+                        errors.append(f'แถว {i+2}: ไม่มีชื่อวัตถุดิบ')
+                        continue
+                    price = float(row.get('price', 0))
+                    unit = row.get('unit', 'g').strip()
+                    stock = int(float(row.get('stock', 0)))
+                    branch_name = row.get('branch', '').strip()
+
+                    if not branch_id:
+                        errors.append(f'แถว {i+2}: ไม่ระบุสาขา')
+                        continue
+
+                    ingredient, _c = Ingredient.objects.get_or_create(
+                        branch_id=branch_id,
+                        name=name,
+                        defaults={'price': price, 'unit': unit, 'stock': stock}
+                    )
+                    if _c:
+                        created += 1
+                    else:
+                        ingredient.stock = stock
+                        ingredient.price = price
+                        ingredient.unit = unit
+                        ingredient.save()
+                        updated += 1
+                except (ValueError, Exception) as e:
+                    errors.append(f'แถว {i+2}: {e}')
+
+        elif mode == 'purchase':
+            # For purchase mode: create Purchase + PurchaseItems
+            supplier = request.POST.get('supplier', '')
+            invoice = request.POST.get('invoice', '')
+
+            if not branch_id:
+                if is_api:
+                    from django.http import JsonResponse
+                    return JsonResponse({'error': 'กรุณาเลือกสาขา'}, status=400)
+                messages.error(request, 'กรุณาเลือกสาขา')
+                return self.get(request, *args, **kwargs)
+
+            branch = Branch.objects.get(id=branch_id)
+            purchase = Purchase.objects.create(
+                branch=branch,
+                supplier_name=supplier,
+                invoice_number=invoice
+            )
+
+            for i, row in enumerate(rows):
+                try:
+                    name = row.get('name', '').strip()
+                    if not name:
+                        errors.append(f'แถว {i+2}: ไม่มีชื่อวัตถุดิบ')
+                        continue
+                    quantity = float(row.get('quantity', row.get('stock', 0)))
+                    unit_price = float(row.get('unit_price', row.get('price', 0)))
+                    unit = row.get('unit', 'g').strip()
+
+                    ingredient, _c = Ingredient.objects.get_or_create(
+                        branch=branch,
+                        name=name,
+                        defaults={'price': unit_price, 'unit': unit, 'stock': 0}
+                    )
+
+                    # Create PurchaseItem which auto-updates stock and creates PriceHistory
+                    PurchaseItem.objects.create(
+                        purchase=purchase,
+                        ingredient=ingredient,
+                        quantity=quantity,
+                        unit_price=unit_price
+                    )
+                    created += 1
+                except Exception as e:
+                    errors.append(f'แถว {i+2}: {e}')
+
+        result = {'created': created, 'updated': updated, 'errors': errors[:20]}
+
+        if is_api:
+            from django.http import JsonResponse
+            return JsonResponse(result)
+
+        if errors:
+            messages.error(request, f'นำเข้าสำเร็จ: สร้าง {created}, อัปเดต {updated}, แต่มี error {len(errors)} รายการ')
+        else:
+            messages.success(request, f'นำเข้าสำเร็จ! สร้าง {created} รายการ, อัปเดต {updated} รายการ')
+        return redirect('import_data')
+
+
+class ReportsView(TemplateView):
+    template_name = 'jaewhoncost/reports.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['branches'] = Branch.objects.all()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        import csv
+        import io
+        from django.http import HttpResponse, JsonResponse
+        from datetime import datetime
+
+        report_type = request.POST.get('report_type')
+        branch_id = request.POST.get('branch_id', '')
+        date_start = request.POST.get('date_start', '')
+        date_end = request.POST.get('date_end', '')
+        export_format = request.POST.get('export_format', 'html')  # html, csv, excel
+
+        # Build queryset based on report type
+        if report_type == 'sales':
+            qs = Sale.objects.all().select_related('menu', 'branch')
+            if branch_id:
+                qs = qs.filter(branch_id=branch_id)
+            if date_start:
+                qs = qs.filter(sale_date__gte=date_start)
+            if date_end:
+                qs = qs.filter(sale_date__lte=date_end)
+
+            headers = ['วันที่', 'เมนู', 'สาขา', 'จำนวน', 'ราคาต่อหน่วย', 'รวม', 'วิธีชำระเงิน']
+            rows = []
+            for s in qs:
+                rows.append([
+                    s.sale_date.strftime('%Y-%m-%d %H:%M'),
+                    s.menu.name,
+                    s.branch.name,
+                    s.quantity,
+                    float(s.menu.price),
+                    float(s.total_price),
+                    s.get_payment_method_display() or s.payment_method,
+                ])
+            title = 'รายงานยอดขาย'
+
+        elif report_type == 'revenue_by_branch':
+            from django.db.models import Count, Sum
+            qs = Branch.objects.all()
+            headers = ['สาขา', 'ยอดขายรวม', 'จำนวนรายการ', 'ต้นทุนรวม', 'กำไร']
+            rows = []
+            for b in qs:
+                total_rev = sum(s.total_price for s in b.sales.all())
+                total_cost = sum(p.total_amount for p in b.purchases.all())
+                rows.append([
+                    b.name,
+                    float(total_rev),
+                    b.sales.count(),
+                    float(total_cost),
+                    float(total_rev - total_cost),
+                ])
+            title = 'รายงานรายได้แยกตามสาขา'
+
+        elif report_type == 'inventory':
+            qs = Ingredient.objects.all().select_related('branch')
+            if branch_id:
+                qs = qs.filter(branch_id=branch_id)
+            headers = ['วัตถุดิบ', 'สาขา', 'ราคา/หน่วย', 'คงเหลือ', 'มูลค่ารวม', 'หน่วย', 'อัปเดตล่าสุด']
+            rows = []
+            for i in qs:
+                rows.append([
+                    i.name,
+                    i.branch.name,
+                    float(i.price),
+                    i.stock,
+                    float(i.price * i.stock),
+                    dict(Ingredient.UNIT_CHOICES).get(i.unit, i.unit),
+                    i.updated_at.strftime('%Y-%m-%d') if i.updated_at else '-',
+                ])
+            title = 'รายงานสต็อกวัตถุดิบ'
+
+        elif report_type == 'purchases':
+            qs = Purchase.objects.all().select_related('branch')
+            if branch_id:
+                qs = qs.filter(branch_id=branch_id)
+            if date_start:
+                qs = qs.filter(purchase_date__gte=date_start)
+            if date_end:
+                qs = qs.filter(purchase_date__lte=date_end)
+            headers = ['วันที่', 'สาขา', 'ผู้จัดจำหน่าย', 'เลขที่ใบแจ้งหนี้', 'ยอดรวม', 'สถานะ', 'หมายเหตุ']
+            rows = []
+            for p in qs:
+                rows.append([
+                    p.purchase_date.strftime('%Y-%m-%d %H:%M'),
+                    p.branch.name,
+                    p.supplier_name or '-',
+                    p.invoice_number or '-',
+                    float(p.total_amount),
+                    p.get_payment_status_display(),
+                    p.note or '-',
+                ])
+            title = 'รายงานการจัดซื้อ'
+
+        elif report_type == 'price_history':
+            qs = PriceHistory.objects.all().select_related('ingredient')
+            headers = ['วันที่', 'วัตถุดิบ', 'ราคา', 'ปริมาณ', 'หมายเหตุ']
+            rows = []
+            for ph in qs[:200]:  # limit to avoid huge output
+                rows.append([
+                    ph.effective_date.strftime('%Y-%m-%d %H:%M'),
+                    ph.ingredient.name,
+                    float(ph.price),
+                    float(ph.quantity_purchased or 0),
+                    ph.note or '-',
+                ])
+            title = 'รายงานประวัติราคา'
+
+        elif report_type == 'menu_cost':
+            qs = Menu.objects.all().select_related('recipe', 'branch')
+            if branch_id:
+                qs = qs.filter(branch_id=branch_id)
+            headers = ['เมนู', 'สาขา', 'ราคาขาย', 'ต้นทุนวัตถุดิบ', 'Food Cost %', 'กำไรต่อรายการ']
+            rows = []
+            for m in qs:
+                cost = 0
+                if m.recipe:
+                    cost = sum(item.quantity * item.ingredient.price for item in m.recipe.items.all())
+                fcp = (cost / float(m.price) * 100) if float(m.price) > 0 else 0
+                rows.append([
+                    m.name,
+                    m.branch.name,
+                    float(m.price),
+                    cost,
+                    round(fcp, 1),
+                    float(m.price) - cost,
+                ])
+            title = 'รายงานต้นทุนเมนู'
+
+        else:
+            return JsonResponse({'error': 'Invalid report type'}, status=400)
+
+        if export_format == 'csv':
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['\ufeff' + title])  # BOM for UTF-8
+            writer.writerow(headers)
+            for row in rows:
+                writer.writerow(row)
+            resp = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+            resp['Content-Disposition'] = f'attachment; filename="report_{report_type}.csv"'
+            return resp
+
+        # HTML render
+        return self.render_to_response({
+            'title': title,
+            'headers': headers,
+            'rows': rows,
+            'branches': Branch.objects.all(),
+        })
+
+
 class PriceHistoryViewSet(viewsets.ModelViewSet):
     queryset = PriceHistory.objects.all().select_related('ingredient', 'purchase')
     serializer_class = PriceHistorySerializer

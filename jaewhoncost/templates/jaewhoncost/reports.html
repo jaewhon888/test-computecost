@@ -1,0 +1,289 @@
+{% extends 'jaewhoncost/base.html' %}
+{% load static %}
+
+{% block title %}📊 รายงานและส่งออก (Reports){% endblock %}
+{% block page_title %}📊 รายงาน{% endblock %}
+
+{% block content %}
+<style>
+.reports-page { font-family: 'Prompt', sans-serif; }
+
+/* Report type cards */
+.report-types {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.report-card {
+    background: white;
+    border-radius: 14px;
+    padding: 22px;
+    text-align: center;
+    cursor: pointer;
+    border: 2px solid #f0f0f0;
+    transition: all 0.2s;
+}
+.report-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+.report-card.selected { border-color: var(--gold); background: #fff9e6; box-shadow: 0 4px 15px rgba(212,175,55,0.2); }
+.report-card .rc-icon { font-size: 36px; margin-bottom: 8px; }
+.report-card .rc-name { font-weight: 700; color: var(--navy); font-size: 15px; }
+.report-card .rc-desc { font-size: 12px; color: #888; margin-top: 4px; }
+
+/* Filter bar */
+.filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    margin-bottom: 20px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+.filter-bar .fg { display: flex; flex-direction: column; gap: 4px; }
+.filter-bar label { font-size: 12px; color: #888; font-weight: 500; }
+.filter-bar input, .filter-bar select {
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: 'Prompt', sans-serif;
+    font-size: 14px;
+}
+.filter-bar input:focus, .filter-bar select:focus {
+    outline: none; border-color: var(--gold); box-shadow: 0 0 6px rgba(212,175,55,0.2);
+}
+
+/* Actions */
+.report-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.btn-export {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Prompt', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+}
+.btn-export-csv { background: #4caf50; color: white; }
+.btn-export-csv:hover { background: #388e3c; }
+.btn-excel { background: #2e7d32; color: white; }
+.btn-excel:hover { background: #1b5e20; }
+
+/* Table */
+.report-table-container {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+    overflow-x: auto;
+}
+.report-table { width: 100%; border-collapse: collapse; font-size: 14px; white-space: nowrap; }
+.report-table th {
+    background: var(--navy);
+    color: white;
+    padding: 12px 14px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+}
+.report-table td { padding: 10px 14px; border-bottom: 1px solid #f0f0f0; }
+.report-table tr:hover { background: #faf8f0; }
+.report-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.report-summary {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 2px solid var(--gold);
+    font-size: 14px;
+    color: #666;
+}
+
+/* Empty state */
+.report-empty { text-align: center; padding: 60px 20px; color: #999; }
+.report-empty .re-icon { font-size: 56px; margin-bottom: 12px; }
+.report-empty .re-text { font-size: 16px; }
+
+@media (max-width: 768px) {
+    .report-types { grid-template-columns: repeat(2, 1fr); }
+    .filter-bar { flex-direction: column; align-items: stretch; }
+    .filter-bar .fg { width: 100%; }
+}
+@media (max-width: 480px) {
+    .report-types { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="reports-page">
+    <!-- Report Type Selection -->
+    <div class="report-types">
+        <div class="report-card selected" data-type="sales" onclick="selectReport(this)">
+            <div class="rc-icon">💰</div>
+            <div class="rc-name">รายงานยอดขาย</div>
+            <div class="rc-desc">ยอดขายแยกตามรายการ, ช่วงเวลา</div>
+        </div>
+        <div class="report-card" data-type="revenue_by_branch" onclick="selectReport(this)">
+            <div class="rc-icon">🏪</div>
+            <div class="rc-name">รายได้แยกตามสาขา</div>
+            <div class="rc-desc">สรุปยอดขาย ต้นทุน กำไร</div>
+        </div>
+        <div class="report-card" data-type="inventory" onclick="selectReport(this)">
+            <div class="rc-icon">🛒</div>
+            <div class="rc-name">รายงานสต็อก</div>
+            <div class="rc-desc">วัตถุดิบ คงเหลือ มูลค่า</div>
+        </div>
+        <div class="report-card" data-type="purchases" onclick="selectReport(this)">
+            <div class="rc-icon">🛍️</div>
+            <div class="rc-name">รายงานจัดซื้อ</div>
+            <div class="rc-desc">ใบจัดซื้อ ประวัติซื้อ</div>
+        </div>
+        <div class="report-card" data-type="menu_cost" onclick="selectReport(this)">
+            <div class="rc-icon">🧮</div>
+            <div class="rc-name">ต้นทุนเมนู</div>
+            <div class="rc-desc">Food Cost % กำไรต่อรายการ</div>
+        </div>
+        <div class="report-card" data-type="price_history" onclick="selectReport(this)">
+            <div class="rc-icon">📈</div>
+            <div class="rc-name">ประวัติราคา</div>
+            <div class="rc-desc">การเปลี่ยนแปลงราคาวัตถุดิบ</div>
+        </div>
+    </div>
+
+    <input type="hidden" id="reportType" value="sales">
+
+    <!-- Filters -->
+    <div class="filter-bar">
+        <div class="fg">
+            <label>🏢 สาขา</label>
+            <select id="branchFilter">
+                <option value="">ทั้งหมด</option>
+                {% for b in branches %}
+                    <option value="{{ b.id }}">{{ b.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="fg" id="dateStartGroup">
+            <label>📅 วันที่เริ่ม</label>
+            <input type="date" id="dateStart" value="">
+        </div>
+        <div class="fg" id="dateEndGroup">
+            <label>📅 วันที่สิ้นสุด</label>
+            <input type="date" id="dateEnd" value="">
+        </div>
+        <button class="btn btn-primary" onclick="loadReport()" style="border-radius:8px;padding:8px 18px;">📊 ดูรายงาน</button>
+    </div>
+
+    <!-- Export buttons -->
+    <div class="report-actions" id="exportActions" style="display:none;">
+        <button class="btn-export btn-export-csv" onclick="exportReport('csv')">📥 ส่งออก CSV</button>
+        <button class="btn-export btn-excel" onclick="exportReport('excel')">📗 ส่งออก Excel</button>
+        <span id="rowCount" style="font-size:13px;color:#888;align-self:center;margin-left:auto;"></span>
+    </div>
+
+    <!-- Results -->
+    <div class="report-table-container" id="reportResults" style="display:none;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentData = null;
+
+function selectReport(el) {
+    document.querySelectorAll('.report-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('reportType').value = el.dataset.type;
+    // Show/hide date filters based on report type
+    const timeBased = ['sales', 'purchases'].includes(el.dataset.type);
+    document.getElementById('dateStartGroup').style.display = timeBased ? 'flex' : 'none';
+    document.getElementById('dateEndGroup').style.display = timeBased ? 'flex' : 'none';
+}
+
+function loadReport() {
+    const reportType = document.getElementById('reportType').value;
+    const branch = document.getElementById('branchFilter').value;
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+
+    const formData = new FormData();
+    formData.append('report_type', reportType);
+    formData.append('branch_id', branch);
+    formData.append('date_start', dateStart);
+    formData.append('date_end', dateEnd);
+
+    fetch(window.location.origin + '/reports/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    })
+    .then(r => r.text())
+    .then(html => {
+        // Extract the results content from the response (it's a full page)
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const results = doc.querySelector('#reportResults');
+        if (results) {
+            document.getElementById('reportResults').outerHTML = results.outerHTML;
+            document.getElementById('reportResults').style.display = 'block';
+            document.getElementById('exportActions').style.display = 'flex';
+            const rows = document.querySelectorAll('#reportResults .report-table tr');
+            document.getElementById('rowCount').textContent = `พบ ${rows.length - 1} รายการ`;
+            // Store data for export
+            currentData = { reportType, branch, dateStart, dateEnd };
+        }
+    })
+    .catch(e => alert('เกิดข้อผิดพลาด: ' + e.message));
+}
+
+function exportReport(format) {
+    if (!currentData) { alert('กรุณาดูรายงานก่อนส่งออก'); return; }
+    const formData = new FormData();
+    formData.append('report_type', currentData.reportType);
+    formData.append('branch_id', currentData.branch);
+    formData.append('date_start', currentData.dateStart);
+    formData.append('date_end', currentData.dateEnd);
+    formData.append('export_format', 'csv');
+
+    fetch(window.location.origin + '/reports/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    })
+    .then(r => r.blob())
+    .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'report_' + currentData.reportType + '.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    })
+    .catch(e => alert('ส่งออกไม่สำเร็จ: ' + e.message));
+}
+
+function getCookie(name) {
+    let val = null;
+    if (document.cookie) document.cookie.split(';').forEach(c => {
+        c = c.trim();
+        if (c.startsWith(name + '=')) val = decodeURIComponent(c.slice(name.length + 1));
+    });
+    return val;
+}
+
+// Set default dates
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const monthAgo = new Date();
+    monthAgo.setMonth(today.getMonth() - 1);
+    document.getElementById('dateEnd').value = today.toISOString().split('T')[0];
+    document.getElementById('dateStart').value = monthAgo.toISOString().split('T')[0];
+});
+</script>
+{% endblock %}

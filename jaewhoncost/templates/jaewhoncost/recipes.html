@@ -6,6 +6,7 @@
 
 {% block extra_css %}
 <style>
+
   .rec-stat { padding: 18px; border-radius: 12px; color: white; position: relative; overflow: hidden; }
   .rec-stat::after { content: ''; position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); }
   .rec-stat h3 { margin: 0; font-size: 26px; font-weight: 700; position: relative; z-index: 1; font-family: 'Prompt', sans-serif; }
@@ -50,6 +51,8 @@
   .items-tbl { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
   .items-tbl th { padding: 8px; background: #f5f5f5; text-align: left; font-weight: 600; }
   .items-tbl td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+
+/* Mobile responsive fallbacks */ @media (max-width: 768px) { .form-row-inline, [style*="display: flex"], [style*="display:grid"] { flex-direction: column !important; grid-template-columns: 1fr !important; } [style*="grid-template-columns: 1fr 1fr"], [style*="grid-template-columns:1fr 1fr"] { grid-template-columns: 1fr !important; } .modal-form-grid, [style*="grid-template-columns: repeat(2"] { grid-template-columns: 1fr !important; } .btn-group, .action-buttons, [style*="gap:"] > .btn { margin: 4px 0; } input[type="text"], input[type="number"], input[type="date"], select, textarea { font-size: 16px !important; } } @media (max-width: 480px) { .card { padding: 14px !important; } }
 </style>
 {% endblock %}
 
@@ -176,12 +179,12 @@
                 <label class="form-label" style="margin-bottom: 0;">วัตถุดิบในสูตร</label>
                 <button type="button" class="tab-btn active" onclick="openIngSelect(null)" style="padding: 4px 12px; font-size: 12px; border-color: #667eea; color: #667eea;">+ เพิ่มวัตถุดิบ</button>
             </div>
-            <table class="items-tbl" id="rec-items-tbl">
+            <div class="table-responsive"><table class="items-tbl" id="rec-items-tbl">
                 <thead>
                     <tr><th>วัตถุดิบ</th><th style="width: 100px;">จำนวน</th><th style="width: 60px;">หน่วย</th><th style="width: 60px;"></th></tr>
                 </thead>
                 <tbody id="rec-items-body"></tbody>
-            </table>
+            </table></div>
 
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px;">
                 <button type="button" class="tab-btn" onclick="closeModal()">ยกเลิก</button>
