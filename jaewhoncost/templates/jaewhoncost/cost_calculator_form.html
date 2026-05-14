@@ -460,7 +460,7 @@ body { font-family: 'Prompt', sans-serif; }
 </div>
 
 <!-- ═══════════════════════════════════════════
-     SINGLE RESULT
+     SINGLE RESULT (TABLE LAYOUT)
      ═══════════════════════════════════════════ -->
 <div id="single-result-card" class="card" style="display:none;">
   <div class="card-header">
@@ -471,28 +471,33 @@ body { font-family: 'Prompt', sans-serif; }
   <!-- Price Alerts -->
   <div id="price-alerts" style="margin-bottom:16px;"></div>
 
-  <!-- KPI Row -->
-  <div id="single-kpis" class="result-kpi-grid"></div>
+  <!-- Summary Table -->
+  <div class="table-wrap">
+    <table class="data-table" id="single-summary-table">
+      <thead><tr><th>รายการ</th><th class="text-right">ยอด (บาท)</th></tr></thead>
+      <tbody id="single-summary-body"></tbody>
+      <tfoot id="single-summary-foot"></tfoot>
+    </table>
+  </div>
 
-  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-    <!-- Gauge + Donut -->
-    <div>
-      <div style="display:flex; gap:10px;">
-        <div id="gauge-container" class="chart-card" style="flex:1;"></div>
-        <div id="donut-container" class="chart-card" style="flex:1;"></div>
-      </div>
-    </div>
-
-    <!-- Ingredient Detail -->
-    <div class="chart-card">
-      <div class="chart-title">📦 รายละเอียดวัตถุดิบ</div>
-      <div id="ing-detail-table"></div>
+  <!-- Ingredient Detail -->
+  <div style="margin-top:16px;">
+    <div class="card-title" style="font-size:14px; margin-bottom:10px;">📦 รายละเอียดวัตถุดิบ</div>
+    <div class="table-wrap">
+      <table class="data-table" id="single-detail-tbl">
+        <thead><tr>
+          <th>วัตถุดิบ</th><th class="text-center">จำนวน</th><th class="text-center">หน่วย</th>
+          <th class="text-right">ราคา/หน่วย</th><th class="text-right">ต้นทุน</th>
+        </tr></thead>
+        <tbody id="single-detail-body"></tbody>
+        <tfoot id="single-detail-foot"></tfoot>
+      </table>
     </div>
   </div>
 
   <!-- Calculation Steps -->
   <div style="margin-top:16px;">
-    <div class="chart-title">📐 ขั้นตอนการคำนวณ</div>
+    <div class="card-title" style="font-size:14px; margin-bottom:10px;">📐 ขั้นตอนการคำนวณ</div>
     <ul id="calc-steps-list" class="calc-steps"></ul>
   </div>
 </div>
@@ -961,7 +966,7 @@ async function calculateAll() {
 }
 
 // ═══════════════════════════════════════════
-// DISPLAY SINGLE RESULT
+// DISPLAY SINGLE RESULT (TABLE LAYOUT)
 // ═══════════════════════════════════════════
 function displaySingleResult(data) {
   const card = document.getElementById('single-result-card');
@@ -990,54 +995,48 @@ function displaySingleResult(data) {
   }
   alertsDiv.innerHTML = alertsHTML;
 
-  // KPI Row
-  const kpis = document.getElementById('single-kpis');
-  const profitPct = data.actual_profit_percent ? data.actual_profit_percent.toFixed(1) : '0';
+  // Summary Table — 2 columns: รายการ | ยอด (บาท)
   const fcp = data.actual_food_cost_percent ? data.actual_food_cost_percent.toFixed(1) : '0';
-  kpis.innerHTML = `
-    <div class="result-kpi" style="background:linear-gradient(135deg,#667eea,#764ba2);">
-      <div class="r-label">ต้นทุนวัตถุดิบ</div>
-      <div class="r-value">${fmt(data.total_ingredient_cost)}</div>
-    </div>
-    <div class="result-kpi" style="background:linear-gradient(135deg,#f44336,#e91e63);">
-      <div class="r-label">ต้นทุนรวม (incl. Overhead)</div>
-      <div class="r-value">${fmt(data.total_cost_with_overhead)}</div>
-      <div class="r-sub">OH ${fmt(data.total_overhead)}</div>
-    </div>
-    <div class="result-kpi" style="background:linear-gradient(135deg, ${profit>=0?'#43e97b,#38f9d7':'#f44336,#e91e63'});">
-      <div class="r-label">กำไร / %กำไร</div>
-      <div class="r-value">${fmt(profit)}</div>
-      <div class="r-sub">${profitPct}%</div>
-    </div>
-    <div class="result-kpi" style="background:linear-gradient(135deg,#4facfe,#00f2fe);">
-      <div class="r-label">ราคาขาย / FC%</div>
-      <div class="r-value">${fmt(sellPrice)}</div>
-      <div class="r-sub">Food Cost ${fcp}%</div>
-    </div>
-    <div class="result-kpi" style="background:linear-gradient(135deg,#fa709a,#fee140);">
-      <div class="r-label">ราคาขายแนะนำ</div>
-      <div class="r-value">${fmt(suggested)}</div>
-      <div class="r-sub">ที่ FC ${data.target_food_cost_percent}%</div>
-    </div>`;
+  const profitPct = data.actual_profit_percent ? data.actual_profit_percent.toFixed(1) : '0';
+  const profitColor = profit >= 0 ? '#2e7d32' : '#c62828';
+  const fcpLabel = fcp <= 30 ? '🟢 ดี' : fcp <= 40 ? '🟠 ปานกลาง' : '🔴 สูง';
 
-  // Gauge (Food Cost %)
-  renderGaugeChart(parseFloat(fcp), parseFloat(profitPct));
+  const summaryBody = document.getElementById('single-summary-body');
+  const summaryFoot = document.getElementById('single-summary-foot');
+  let rows = '';
 
-  // Donut (Cost Breakdown)
-  renderDonutChart(data);
-
-  // Ingredient Detail
-  if (data.items && data.items.length) {
-    let html = `<div class="table-responsive"><table class="ing-tbl"><thead><tr>
-      <th>วัตถุดิบ</th><th class="text-center">จำนวน</th><th class="text-center">หน่วย</th>
-      <th class="text-right">ราคา/หน่วย</th><th class="text-right">ต้นทุน</th>
-    </tr></thead><tbody>`;
-    data.items.forEach(it => {
-      html += `<tr><td>${it.ingredient_name}</td><td class="text-center">${it.quantity}</td><td class="text-center">${it.unit}</td>
-        <td class="text-right">${fmt(it.price_per_unit)}</td><td class="text-right" style="font-weight:600;">${fmt(it.cost)}</td></tr>`;
+  // Overhead line items
+  if (data.overhead_costs) {
+    Object.entries(data.overhead_costs).forEach(([k,v]) => {
+      const labels = {overhead_utilities:'ค่าน้ำค่าไฟ',overhead_labor:'ค่าแรง',overhead_rent:'ค่าเช่า',overhead_depreciation:'ค่าเสื่อม',overhead_marketing:'ค่าการตลาด',overhead_delivery:'ค่าส่ง'};
+      rows += `<tr><td style="padding-left:24px;">  ${labels[k]||k}</td><td class="text-right">${fmt(v)}</td></tr>`;
     });
-    html += `<tfoot><tr><td colspan="4" class="text-right">รวม:</td><td class="text-right">${fmt(data.total_ingredient_cost)}</td></tr></tfoot></tbody></table></div>`;
-    document.getElementById('ing-detail-table').innerHTML = html;
+  }
+
+  rows += `<tr><td style="font-weight:600;">📦 ต้นทุนวัตถุดิบ</td><td class="text-right" style="font-weight:600;">${fmt(data.total_ingredient_cost)}</td></tr>`;
+  rows += `<tr><td style="font-weight:600;">📊 Waste ${data.waste_percent}%</td><td class="text-right">${fmt(data.effective_cost - data.total_ingredient_cost)}</td></tr>`;
+  rows += `<tr><td style="font-weight:600;">💼 รวม Overhead</td><td class="text-right">${fmt(data.total_overhead)}</td></tr>`;
+
+  summaryBody.innerHTML = rows;
+
+  // Footer rows (totals + profit)
+  summaryFoot.innerHTML = `
+    <tr><td style="font-weight:700;">🔢 ต้นทุนรวม (วัตถุดิบ+Overhead)</td><td class="text-right" style="font-weight:700;">${fmt(data.total_cost_with_overhead)}</td></tr>
+    <tr><td style="font-weight:600;">💰 ราคาขายจริง</td><td class="text-right" style="font-weight:600;">${fmt(sellPrice)}</td></tr>
+    <tr><td style="font-weight:700;">📈 กำไรสุทธิ</td><td class="text-right" style="font-weight:700;color:${profitColor};">${fmt(profit)} (${profitPct}%)</td></tr>
+    <tr><td>Food Cost % / Target</td><td class="text-center">${fcp} / ${data.target_food_cost_percent}% — ${fcpLabel}</td></tr>
+    <tr><td>ราคาขายแนะนำ (FC ${data.target_food_cost_percent}%)</td><td class="text-right" style="font-weight:600;">${fmt(suggested)}</td></tr>
+  `;
+
+  // Ingredient Detail Table
+  if (data.items && data.items.length) {
+    const detailBody = document.getElementById('single-detail-body');
+    const detailFoot = document.getElementById('single-detail-foot');
+    let html = data.items.map(it =>
+      `<tr><td>${it.ingredient_name}</td><td class="text-center">${it.quantity}</td><td class="text-center">${it.unit}</td><td class="text-right">${fmt(it.price_per_unit)}</td><td class="text-right" style="font-weight:600;">${fmt(it.cost)}</td></tr>`
+    ).join('');
+    detailBody.innerHTML = html;
+    detailFoot.innerHTML = `<tr><td colspan="4" class="text-right">รวมวัตถุดิบ:</td><td class="text-right" style="font-weight:700;">${fmt(data.total_ingredient_cost)}</td></tr>`;
   }
 
   // Calculation Steps
@@ -1047,77 +1046,6 @@ function displaySingleResult(data) {
       `<li><span class="step-num">${i+1}</span><span>${s}</span></li>`
     ).join('');
   }
-}
-
-// ═══════════════════════════════════════════
-// GAUGE CHART (SVG)
-// ═══════════════════════════════════════════
-function renderGaugeChart(fcPercent, profitPercent) {
-  const container = document.getElementById('gauge-container');
-  const color = fcPercent <= 30 ? '#43e97b' : fcPercent <= 40 ? '#ff9800' : '#f44336';
-  const angle = (fcPercent / 100) * 180;
-
-  container.innerHTML = `<div class="chart-title">🎯 Food Cost %</div>
-    <div class="gauge-wrap">
-      <svg width="160" height="90" viewBox="0 0 160 90">
-        <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="#f0f0f0" stroke-width="12" stroke-linecap="round"/>
-        <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round"
-              stroke-dasharray="${(angle/180)*188.5} 188.5" style="transition: stroke-dasharray 0.6s ease;"/>
-        <text x="80" y="65" text-anchor="middle" font-size="22" font-weight="700" fill="#333" font-family="Prompt">${fcPercent.toFixed(1)}%</text>
-        <text x="80" y="82" text-anchor="middle" font-size="9" fill="#999" font-family="Prompt">FC Target: 30%</text>
-      </svg>
-    </div>`;
-}
-
-// ═══════════════════════════════════════════
-// DONUT CHART (SVG)
-// ═══════════════════════════════════════════
-function renderDonutChart(data) {
-  const container = document.getElementById('donut-container');
-  const labels = {overhead_utilities:'ค่าน้ำค่าไฟ',overhead_labor:'ค่าแรง',overhead_rent:'ค่าเช่า',overhead_depreciation:'ค่าเสื่อม',overhead_marketing:'ค่าการตลาด',overhead_delivery:'ค่าส่ง'};
-  const colors = ['#4facfe','#fa709a','#fee140','#43e97b','#667eea','#f44336'];
-
-  const portions = [];
-  if (data.overhead_costs) {
-    Object.entries(data.overhead_costs).forEach(([k,v],i) => {
-      if (v > 0) portions.push({ label: labels[k]||k, value: v, color: colors[i%colors.length] });
-    });
-  }
-  // Also add ingredient cost portion
-  const totalIng = data.total_ingredient_cost || 0;
-  if (totalIng > 0) {
-    portions.unshift({ label: 'วัตถุดิบ', value: totalIng, color: '#1B3A57' });
-  }
-
-  if (portions.length === 0) { container.innerHTML = '<p style="text-align:center;color:#999;">ไม่มีข้อมูล</p>'; return; }
-
-  const total = portions.reduce((s,p) => s+p.value, 0);
-  if (total === 0) { container.innerHTML = '<p style="text-align:center;color:#999;">ไม่มีข้อมูล</p>'; return; }
-
-  // Build SVG donut
-  const cx = 60, cy = 60, r = 40, strokeWidth = 16;
-  const circumference = 2 * Math.PI * r;
-  let offset = 0;
-  let paths = '';
-  portions.forEach(p => {
-    const pct = p.value / total;
-    const dash = pct * circumference;
-    const gap = circumference - dash;
-    paths += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${p.color}" stroke-width="${strokeWidth}"
-              stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"
-              style="transition: all 0.4s ease;"/>`;
-    offset += dash;
-  });
-
-  let legendHTML = portions.map(p =>
-    `<div class="donut-legend-item"><div class="donut-legend-dot" style="background:${p.color};"></div><span>${p.label} ${fmt(p.value)}</span></div>`
-  ).join('');
-
-  container.innerHTML = `<div class="chart-title">🍩 สัดส่วนต้นทุน</div>
-    <div class="donut-wrap">
-      <svg width="120" height="120" viewBox="0 0 120 120">${paths}<text x="${cx}" y="${cy}" text-anchor="middle" dy="5" font-size="10" fill="#666" font-weight="600" font-family="Prompt">${fmt(total)}</text></svg>
-      <div class="donut-legend">${legendHTML}</div>
-    </div>`;
 }
 
 // ═══════════════════════════════════════════

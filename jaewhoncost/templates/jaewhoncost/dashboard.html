@@ -245,7 +245,7 @@
     <div class="finance-card">
         <div class="fin-icon">💵</div>
         <p class="fin-value">฿{{ monthly_revenue|floatformat:2 }}</p>
-        <div class="fin-label">รายรับเดือนนี้</div>
+        <div class="fin-label">รายรับเดือนนี้ {% if monthly_margin %}<span style="font-size:11px;color:#999;">(margin {{ monthly_margin }}%)</span>{% endif %}</div>
     </div>
     <div class="finance-card" style="border-left-color: #e74c3c;">
         <div class="fin-icon">📦</div>
@@ -260,6 +260,39 @@
         <div class="fin-label">กำไรเดือนนี้</div>
     </div>
 </div>
+
+<!-- ===== Inventory Alerts ===== -->
+{% if low_stock_items or out_of_stock > 0 %}
+<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:12px;padding:16px;margin-bottom:24px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">⚠️</span>
+        <strong style="color:#856404;">แจ้งเตือนสต็อก</strong>
+        <span style="font-size:12px;color:#999;margin-left:auto;">
+            ของหมด {{ out_of_stock }} รายการ | เหลือน้อย {{ low_stock }} รายการ | มูลค่าสต ฿{{ total_stock_value|floatformat:0 }}
+        </span>
+    </div>
+    {% if low_stock_items %}
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#e6c200;">
+            <th style="padding:8px;text-align:left;color:#1a5c2a;font-weight:700;">วัตถุดิบ</th>
+            <th style="padding:8px;text-align:center;color:#1a5c2a;font-weight:700;">คงเหลือ</th>
+            <th style="padding:8px;text-align:center;color:#1a5c2a;font-weight:700;">หน่วย</th>
+            <th style="padding:8px;text-align:right;color:#1a5c2a;font-weight:700;">ราคา/หน่วย</th>
+        </tr></thead>
+        <tbody>
+        {% for item in low_stock_items %}
+        <tr style="border-top:1px solid #ffe0b2;">
+            <td style="padding:8px;">{{ item.name }}</td>
+            <td style="padding:8px;text-align:center;font-weight:600;color:{% if item.stock == 0 %}#c62828{% else %}#e65100{% endif %};">{{ item.stock }}</td>
+            <td style="padding:8px;text-align:center;">{{ item.unit }}</td>
+            <td style="padding:8px;text-align:right;">฿{{ item.price|default:0|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+{% endif %}
 
 <!-- ===== KPI Cards ===== -->
 <div class="kpi-row">

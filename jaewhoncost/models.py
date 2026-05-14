@@ -55,13 +55,15 @@ class Ingredient(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=4)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES)
     stock = models.IntegerField(default=0)
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = 'วัตถุดิบ'
         verbose_name_plural = 'วัตถุดิบ'
         unique_together = ['branch', 'name']
+        ordering = ['sort_order', 'id']
     
     def __str__(self):
         return f"{self.name} ({self.unit})"

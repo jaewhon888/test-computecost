@@ -223,15 +223,11 @@ const getCookie = name => { let v=null; if(document.cookie) document.cookie.spli
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
-    const [r1, r2] = await Promise.all([fetch(API+'/recipes/'), fetch(API+'/ingredients/')]);
+    const [r1, r2, rBranches] = await Promise.all([fetch(API+'/recipes/'), fetch(API+'/ingredients/'), fetch(API+'/branches/')]);
     if (!r1.ok || !r2.ok) { throw new Error('API error'); }
     allRecipes = await r1.json();
     allIngs = await r2.json();
-
-    // Load branches from recipe data
-    const branchMap = {};
-    allRecipes.forEach(r => { branchMap[r.branch] = r.branch_name; });
-    branches = Object.entries(branchMap).map(([id, name]) => ({id, name}));
+    branches = await rBranches.json();
     populateBranchSelects();
 
     // Enrich items: add name/unit from ingredients

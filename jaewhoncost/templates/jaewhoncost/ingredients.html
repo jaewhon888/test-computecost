@@ -28,6 +28,11 @@
   .inv-table .th-sort::after { content: '⇅'; margin-left: 4px; font-size: 11px; color: #aaa; }
   .inv-table tbody tr { border-bottom: 1px solid #f5f5f5; transition: background 0.15s; }
   .inv-table tbody tr:hover { background: #fafafa; }
+  .inv-table tbody tr.sortable-ghost { background: #fff8e1; opacity: 0.5; }
+  .inv-table tbody tr.sortable-drag { background: #fff3cd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .drag-handle { cursor: grab; color: #ccc; font-size: 16px; user-select: none; padding: 0 6px; }
+  .drag-handle:active { cursor: grabbing; }
+  .drag-handle:hover { color: #D4AF37; }
   .inv-table td { padding: 10px 12px; vertical-align: middle; }
   .search-input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 10px center; }
   .price-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'Prompt', sans-serif; }
@@ -136,6 +141,7 @@
         <table class="inv-table" id="inv-table">
             <thead>
                 <tr>
+                    <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: #1B3A57; width: 40px;"></th>
                     <th class="th-sort" onclick="sortBy('name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">ชื่อวัตถุดิบ</th>
                     <th class="th-sort" onclick="sortBy('branch_name')" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #1B3A57;">สาขา</th>
                     <th class="th-sort" onclick="sortBy('price')" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1B3A57;">ราคา/หน่วย</th>
@@ -180,7 +186,7 @@
             <div class="form-row three">
                 <div>
                     <label class="form-label">ราคา/หน่วย (฿) *</label>
-                    <input type="number" id="inv-price" class="price-input" step="0.01" min="0" required placeholder="0.00">
+                    <input type="number" id="inv-price" class="price-input" step="0.0001" min="0" required placeholder="0.0000">
                 </div>
                 <div>
                     <label class="form-label">หน่วย *</label>
@@ -210,15 +216,29 @@
 {% block extra_js %}
 <script>
 const API = window.location.origin + '/api';
-let allItems = [], currentId = null, sortCol = 'name', sortAsc = true;
-const fmt = n => '฿' + parseFloat(n).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+let allItems = [], currentId = null, sortCol = 'name', sortAsc = true, sortableInstance = null;
+const fmt = n => '฿' + parseFloat(n).toLocaleString('th-TH', {minimumFractionDigits: 4, maximumFractionDigits: 4});
 const getCookie = name => { let v=null; if(document.cookie) document.cookie.split(';').forEach(c=>{const[k,va]=c.trim().split('='); if(k===name) v=va; }); return v; };
+
+// Load SortableJS from CDN
+function loadSortableJS() {
+    return new Promise((resolve, reject) => {
+        if (window.Sortable) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+}
 
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
     await loadBranches();
     await loadItems();
+    await loadSortableJS();
+    initSortable();
 }
 
 async function loadBranches() {
@@ -313,7 +333,8 @@ function renderTable(items) {
         const s = stockStatus(i.stock);
         const tv = (parseFloat(i.price)||0) * (parseInt(i.stock)||0);
         const d = i.updated_at ? new Date(i.updated_at).toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'2-digit'}) : '-';
-        return `<tr ondblclick="editIngredient(${i.id})" style="cursor:pointer;">
+        return `<tr data-id="${i.id}" ondblclick="editIngredient(${i.id})" style="cursor:pointer;">
+            <td><span class="drag-handle" title="ลากเพื่อจัดเรียง">⠿</span></td>
             <td style="font-weight:500;">${i.name}</td>
             <td>${i.branch_name || '-'}</td>
             <td style="text-align:right;">${fmt(i.price)}</td>
@@ -364,6 +385,46 @@ function renderCharts(items) {
             <div style="text-align:right;font-weight:700;color:#2e7d32;">${fmt(i.price)}<br><small style="color:#999;font-weight:400;">/${i.unit}</small></div>
         </div>`;
     }).join('');
+}
+
+// ===== Sortable Drag & Drop =====
+function initSortable() {
+    const tbody = document.getElementById('inv-tbody');
+    if (!tbody || !window.Sortable) return;
+    sortableInstance = new Sortable(tbody, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        dragClass: 'sortable-drag',
+        onEnd: function(evt) {
+            // Build new order from DOM
+            const rows = tbody.querySelectorAll('tr[data-id]');
+            const orders = [];
+            rows.forEach((row, idx) => {
+                const id = parseInt(row.dataset.id);
+                orders.push({ id: id, sort_order: idx });
+                // Update in allItems array too
+                const item = allItems.find(x => x.id === id);
+                if (item) item.sort_order = idx;
+            });
+            // Save to backend
+            saveReorder(orders);
+        }
+    });
+}
+
+async function saveReorder(orders) {
+    try {
+        const r = await fetch(API + '/ingredients/reorder/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ orders })
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch(e) {
+        console.error('saveReorder:', e);
+        alert('บันทึกลำดับไม่สำเร็จ: ' + e.message);
+    }
 }
 
 // ===== Modal & CRUD =====
