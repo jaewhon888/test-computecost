@@ -83,6 +83,16 @@ class IngredientViewSet(viewsets.ModelViewSet):
     serializer_class = IngredientSerializer
     pagination_class = None
 
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """Reorder ingredients by sort_order. Expects { 'orders': [{id: 1, sort_order: 0}, ...] }"""
+        orders = request.data.get('orders', [])
+        if not isinstance(orders, list):
+            return Response({'error': 'orders must be a list'}, status=400)
+        for item in orders:
+            Ingredient.objects.filter(pk=item.get('id')).update(sort_order=item.get('sort_order', 0))
+        return Response({'status': 'ok', 'updated': len(orders)})
+
 
 class OwnerViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -885,7 +895,25 @@ class DashboardView(TemplateView):
         context['monthly_cost'] = monthly_cost
         context['monthly_profit'] = monthly_profit
         context['top_menus'] = top_menus
-        
+
+        # Profit margin
+        context['profit_margin'] = round((total_profit / total_revenue * 100) if total_revenue else 0, 1)
+        context['monthly_margin'] = round((monthly_profit / monthly_revenue * 100) if monthly_revenue else 0, 1)
+
+        # Inventory stats
+        from django.db.models import Sum, F as DbF
+        stock_info = Ingredient.objects.aggregate(
+            total_stock_value=Sum(DbF('price') * DbF('stock')),
+        )
+        context['total_stock_value'] = float(stock_info['total_stock_value'] or 0)
+        context['out_of_stock'] = Ingredient.objects.filter(stock=0).count()
+        context['low_stock'] = Ingredient.objects.filter(stock__lte=5, stock__gt=0).count()
+
+        # Low stock ingredients list (top 5)
+        context['low_stock_items'] = Ingredient.objects.filter(
+            stock__lte=5
+        ).order_by('stock')[:5]
+
         return context
 
 
