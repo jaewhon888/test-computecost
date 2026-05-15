@@ -56,7 +56,7 @@ class MenuSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Menu
-        fields = ['id', 'branch', 'branch_name', 'recipe', 'recipe_name', 'name', 'price', 'description', 'food_cost_percent', 'created_at', 'updated_at']
+        fields = ['id', 'branch', 'branch_name', 'recipe', 'recipe_name', 'name', 'price', 'description', 'sort_order', 'food_cost_percent', 'created_at', 'updated_at']
     
     def get_food_cost_percent(self, obj):
         """คำนวณ Food Cost % จากต้นทุนวัตถุดิบในสูตร / ราคาขาย*100"""

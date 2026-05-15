@@ -342,12 +342,23 @@ class RecipeItemViewSet(viewsets.ModelViewSet):
 class MenuViewSet(viewsets.ModelViewSet):
     queryset = Menu.objects.all()
     serializer_class = MenuSerializer
+    pagination_class = None
     
     def get_queryset(self):
         branch_id = self.request.query_params.get('branch_id')
         if branch_id:
             return Menu.objects.filter(branch_id=branch_id)
         return Menu.objects.all()
+    
+    @action(detail=False, methods=['post'])
+    def reorder(self, request):
+        """เรียงลำดับเมนูด้วย sort_order. Expects { 'orders': [{id: 1, sort_order: 0}, ...] }"""
+        orders = request.data.get('orders', [])
+        if not isinstance(orders, list):
+            return Response({'error': 'orders must be a list'}, status=400)
+        for item in orders:
+            Menu.objects.filter(pk=item.get('id')).update(sort_order=item.get('sort_order', 0))
+        return Response({'status': 'ok', 'updated': len(orders)})
     
     @action(detail=True, methods=['post'])
     def calculate_cost(self, request, pk=None):

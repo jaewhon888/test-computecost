@@ -113,6 +113,7 @@ class Menu(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.SET_NULL, null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True)
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -120,6 +121,7 @@ class Menu(models.Model):
         verbose_name = 'เมนู'
         verbose_name_plural = 'เมนู'
         unique_together = ['branch', 'name']
+        ordering = ['sort_order', 'id']
     
     def __str__(self):
         return f"{self.name} ({self.price})"

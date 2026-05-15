@@ -136,6 +136,13 @@ body { font-family: 'Prompt', sans-serif; }
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 
+/* ══ Sortable Drag & Drop ══ */
+.data-table tbody tr.sortable-ghost { background: #fff8e1; opacity: 0.5; }
+.data-table tbody tr.sortable-drag { background: #fff3cd; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.drag-handle { cursor: grab; color: #ccc; font-size: 16px; user-select: none; padding: 0 6px; }
+.drag-handle:active { cursor: grabbing; }
+.drag-handle:hover { color: #D4AF37; }
+
 .status-badge {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px;
   border-radius: 14px; font-size: 11px; font-weight: 600;
@@ -313,6 +320,7 @@ body { font-family: 'Prompt', sans-serif; }
           <th style="width:36px; cursor:default;">
             <input type="checkbox" id="select-all" class="bulk-checkbox" onchange="toggleSelectAll()" style="cursor:pointer;">
           </th>
+          <th style="width:30px; cursor:default;" title="ลากเพื่อจัดเรียง">#</th>
           <th onclick="sortMenus('name')">ชื่อเมนู</th>
           <th onclick="sortMenus('branch_name')">สาขา</th>
           <th onclick="sortMenus('recipe_name')">สูตรอาหาร</th>
@@ -444,6 +452,7 @@ let currentEditId = null;
 let selectedIds = new Set();
 let sortCol = 'name', sortAsc = true;
 let currentPage = 1, perPage = 20;
+let sortableInstance = null;
 
 const fmt = n => {
   if (n == null || isNaN(n)) return '฿0.00';
@@ -478,7 +487,68 @@ async function init() {
 
   updateKPIs();
   applyFilters();
+  document.getElementById('per-page').value = '50';
+  perPage = 50;
+  await initSortableAfterLoad();
   toast('info', `โหลด ${allMenus.length} เมนู, ${allRecipes.length} สูตร เสร็จแล้วคะ`);
+}
+
+// ═══════════════════════════════════════════
+// SORTABLE Drag & Drop
+// ═══════════════════════════════════════════
+function loadSortableJS() {
+  return new Promise(resolve => {
+    if (window.Sortable) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js';
+    s.onload = resolve;
+    s.onerror = resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function initSortableAfterLoad() {
+  await loadSortableJS();
+  initSortable();
+}
+
+function initSortable() {
+  const tbody = document.getElementById('menus-tbody');
+  if (!tbody || !window.Sortable) return;
+  if (sortableInstance) sortableInstance.destroy();
+  sortableInstance = new Sortable(tbody, {
+    handle: '.drag-handle',
+    animation: 200,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    onEnd: function(evt) {
+      const rows = [...tbody.children].filter(r => r.hasAttribute('data-id') && !r.hasAttribute('data-preview-for'));
+      const orders = rows.map((r, idx) => ({
+        id: parseInt(r.dataset.id),
+        sort_order: idx
+      }));
+      saveReorder(orders);
+    }
+  });
+}
+
+async function saveReorder(orders) {
+  try {
+    const r = await fetch(API + '/menus/reorder/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ orders })
+    });
+    if (!r.ok) throw new Error('Reorder failed');
+    // Update local sort_order so future renders maintain order
+    orders.forEach(o => {
+      const m = allMenus.find(x => x.id === o.id);
+      if (m) m.sort_order = o.sort_order;
+    });
+  } catch(e) {
+    console.error('saveReorder:', e);
+    toast('error', 'บันทึกการเรียงลำดับไม่สำเร็จ');
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -582,10 +652,11 @@ function renderTable() {
 
     const checked = selectedIds.has(m.id) ? 'checked' : '';
 
-    return `<tr>
+    return `<tr data-id="${m.id}">
       <td class="text-center">
         <input type="checkbox" class="bulk-checkbox" value="${m.id}" ${checked} onchange="toggleSelect(${m.id}, this.checked)">
       </td>
+      <td class="text-center"><span class="drag-handle" title="ลากเพื่อจัดเรียง">⠿</span></td>
       <td style="font-weight:500;">${m.name}</td>
       <td>${m.branch_name||'-'}</td>
       <td style="cursor:pointer; color:#667eea; font-weight:500;" onclick="showRecipeDetail(${m.id})">${m.recipe_name||'-'}</td>
@@ -616,6 +687,7 @@ function renderTable() {
   }
   btns.innerHTML = btnsHTML;
   updateBulkBar();
+  initSortable();
 }
 
 function goPage(p) {
@@ -930,7 +1002,7 @@ async function showRecipeDetail(menuId) {
   const fcp = m.price > 0 ? (totalCost / m.price * 100).toFixed(1) : '—';
   const tr = document.createElement('tr');
   tr.setAttribute('data-preview-for', menuId);
-  tr.innerHTML = `<td colspan="8" style="padding:0; background:#f8f9fa;">
+  tr.innerHTML = `<td colspan="9" style="padding:0; background:#f8f9fa;">
     <div style="padding:12px; border-radius:8px;">
       <div style="font-size:12px; font-weight:600; color:#1B3A57; margin-bottom:8px;">📦 ${m.recipe_name} — ต้นทุนรวม: ${fmt(totalCost)} | FC: ${fcp}%</div>
       <table style="width:100%; border-collapse:collapse; font-size:11px;">
