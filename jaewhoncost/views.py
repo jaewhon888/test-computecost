@@ -182,7 +182,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 RecipeItem.objects.create(
                     recipe=recipe,
                     ingredient_id=item_data.get('ingredient'),
-                    quantity=item_data.get('quantity', 0)
+                    quantity=item_data.get('quantity', 0),
+                    yield_percent=item_data.get('yield_percent', 100.0)
                 )
     
     def perform_update(self, serializer):
@@ -198,7 +199,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 RecipeItem.objects.create(
                     recipe=recipe,
                     ingredient_id=item_data.get('ingredient'),
-                    quantity=item_data.get('quantity', 0)
+                    quantity=item_data.get('quantity', 0),
+                    yield_percent=item_data.get('yield_percent', 100.0)
                 )
     
     @action(detail=True, methods=['post'])
@@ -239,12 +241,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
         
         total_overhead = sum(overhead_costs.values())
         
-        # คำนวณต้นทุนวัตถุดิบ
+        # คำนวณต้นทุนวัตถุดิบพร้อมปรับ Yield %
         total_ingredient_cost = 0
         items_detail = []
         
         for item in recipe.items.all():
             quantity = float(item.quantity)
+            yield_pct = float(item.yield_percent) if item.yield_percent else 100.0
             
             # ถ้ามีการระบุวันที่และต้องการใชราคาย้อนหลัง
             if calculation_date and use_historical_prices:
@@ -266,7 +269,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 # ใชราคาปัจจุบัน
                 price_per_unit = float(item.ingredient.price)
             
-            item_cost = quantity * price_per_unit
+            # ต้นทุนวัตถุดิบต่อหน่วยหลังจากปรับ Yield %
+            # เช่น ใช้เนื้อ 0.2 kg แต่ Yield 70% → ต้องใช้เนื้อ 0.2/0.7 = 0.286 kg
+            effective_quantity = quantity / (yield_pct / 100.0) if yield_pct > 0 else quantity
+            item_cost = effective_quantity * price_per_unit
             total_ingredient_cost += item_cost
             
             items_detail.append({
@@ -275,6 +281,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'unit': item.ingredient.unit,
                 'price_per_unit': price_per_unit,
                 'cost': item_cost,
+                'yield_percent': yield_pct,
+                'effective_quantity': effective_quantity,
                 'is_historical': calculation_date and use_historical_prices,
             })
         
@@ -317,7 +325,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'actual_food_cost_percent': actual_food_cost_percent,
             'target_food_cost_percent': target_food_cost_percent,
             'calculation_steps': [
-                f'1. รวมต้นทุนวัตถุดิบ: {total_ingredient_cost:.2f} บาท' + (' (ราคาย้อนหลัง)' if calculation_date else ''),
+                f'1. รวมต้นทุนวัตถุดิบ (ปรับ Yield % แต่ละรายการ): {total_ingredient_cost:.2f} บาท' + (' (ราคาย้อนหลัง)' if calculation_date else ''),
                 f'2. Waste {waste_percent}%: {total_ingredient_cost:.2f} ÷ (1 - {waste_factor}) = {effective_cost:.2f} บาท',
                 f'3. Overhead: {total_overhead:.2f} บาท',
                 f'4. ต้นทุนรวม: {total_cost_with_overhead:.2f} บาท',

@@ -175,13 +175,13 @@
             </div>
 
             <!-- Ingredients Section -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <label class="form-label" style="margin-bottom: 0;">วัตถุดิบในสูตร</label>
-                <button type="button" class="tab-btn active" onclick="openIngSelect(null)" style="padding: 4px 12px; font-size: 12px; border-color: #667eea; color: #667eea;">+ เพิ่มวัตถุดิบ</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <label class="form-label" style="margin-bottom: 0;font-size:14px;font-weight:600;color:#1B3A57;">🥘 วัตถุดิบในสูตร</label>
+                <button type="button" class="tab-btn active" onclick="openIngSelect(null)" style="padding: 6px 16px; font-size: 13px; font-weight:600; border:2px solid #667eea; background:#667eea; color:white; border-radius:8px; cursor:pointer; transition:all 0.15s;">➕ เพิ่มวัตถุดิบ</button>
             </div>
-            <div class="table-responsive"><table class="items-tbl" id="rec-items-tbl">
+            <div class="table-responsive"><table class="items-tbl" id="rec-items-tbl" style="border-collapse:separate;border-spacing:0 2px;">
                 <thead>
-                    <tr><th>วัตถุดิบ</th><th style="width: 100px;">จำนวน</th><th style="width: 60px;">หน่วย</th><th style="width: 60px;"></th></tr>
+                    <tr style="background:#f0f4ff;"><th style="padding:8px 10px;border-radius:6px 0 0 0;font-size:13px;font-weight:600;color:#1B3A57;">วัตถุดิบ</th><th style="width:90px;padding:8px 6px;font-size:13px;font-weight:600;color:#1B3A57;text-align:center;">จำนวน</th><th style="width:55px;padding:8px 6px;font-size:13px;font-weight:600;color:#1B3A57;text-align:center;">หน่วย</th><th style="width:85px;padding:8px 6px;border-radius:0 6px 0 0;font-size:13px;font-weight:600;color:#1B3A57;text-align:center;">Yield %</th><th style="width:90px;padding:8px 6px;font-size:13px;font-weight:600;color:#1B3A57;text-align:center;">จัดการ</th></tr>
                 </thead>
                 <tbody id="rec-items-body"></tbody>
             </table></div>
@@ -406,25 +406,31 @@ async function editRecipe(id) {
         tbody.innerHTML = '';
         if (d.items && d.items.length) {
             d.items.forEach(it => {
-                addRow(it.ingredient_name || '', it.ingredient || '', it.quantity || 0, it.ingredient_unit || '');
+                addRow(it.ingredient_name || '', it.ingredient || '', it.quantity || 0, it.ingredient_unit || '', parseFloat(it.yield_percent) || 100.0);
             });
         }
         document.getElementById('rec-modal').style.display = 'block';
     } catch(e) { console.error('editRecipe:', e); alert('เกิดข้อผิดพลาด'); }
 }
 
-function addRow(name, ingId, qty, unit) {
+function addRow(name, ingId, qty, unit, yieldPct) {
     const tbody = document.getElementById('rec-items-body');
     const tr = document.createElement('tr');
+    yieldPct = yieldPct || 100.0;
+    tr.style.cssText = 'border-bottom:1px solid #e8e8e8;transition:background 0.15s;';
+    tr.onmouseenter = () => tr.style.background = '#f0f4ff';
+    tr.onmouseleave = () => tr.style.background = '';
     tr.innerHTML = `
-        <td><input type="text" class="ing-name" value="${name}" readonly style="border:none;background:transparent;width:100%;font-family:'Prompt';font-size:13px;"></td>
-        <td><input type="number" class="ing-qty" value="${qty}" step="0.01" min="0" style="width:100%;padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:13px;text-align:right;"></td>
-        <td><input type="text" class="ing-unit" value="${unit}" readonly style="border:none;background:transparent;width:100%;font-size:13px;color:#999;"></td>
-        <td style="text-align:center;">
-            <button type="button" onclick="openIngSelect(this.closest('tr'))" style="background:none;border:none;cursor:pointer;font-size:14px;">📋</button>
-            <button type="button" onclick="this.closest('tr').remove()" style="background:none;border:none;cursor:pointer;font-size:14px;color:#c62828;">✕</button>
+        <td style="padding:6px 4px;"><input type="text" class="ing-name" value="${name}" readonly style="border:1px solid #e0e0e0;border-radius:4px;background:#f9f9f9;padding:6px 10px;width:100%;font-family:'Prompt',sans-serif;font-size:14px;font-weight:500;color:#1B3A57;"></td>
+        <td style="padding:6px 4px;"><input type="number" class="ing-qty" value="${qty}" step="0.01" min="0" style="width:100%;padding:6px 8px;border:1px solid #d0d0d0;border-radius:4px;font-size:14px;font-weight:600;text-align:right;color:#2e7d32;background:#f1f8e9;"></td>
+        <td style="padding:6px 4px;"><input type="text" class="ing-unit" value="${unit}" readonly style="border:1px solid #e0e0e0;border-radius:4px;background:#f5f5f5;padding:6px 8px;width:100%;font-size:14px;font-weight:600;text-align:center;color:#555;"></td>
+        <td style="padding:6px 4px;"><input type="number" class="ing-yield" value="${yieldPct}" min="1" max="100" step="0.1" style="width:80px;padding:6px 6px;border:1px solid #d0d0d0;border-radius:4px;font-size:14px;font-weight:600;text-align:center;color:#e65100;background:#fff3e0;"></td>
+        <td style="padding:6px 4px;text-align:center;white-space:nowrap;">
+            <button type="button" onclick="openIngSelect(this.closest('tr'))" style="background:#667eea10;border:1px solid #667eea30;border-radius:4px;cursor:pointer;font-size:16px;padding:4px 8px;transition:all 0.15s;" onmouseenter="this.style.background='#667eea20'" onmouseleave="this.style.background='#667eea10'" title="เปลี่ยนวัตถุดิบ">📋</button>
+            <button type="button" onclick="this.closest('tr').remove()" style="background:#c6282810;border:1px solid #c6282830;border-radius:4px;cursor:pointer;font-size:16px;padding:4px 8px;margin-left:4px;transition:all 0.15s;" onmouseenter="this.style.background='#c6282820'" onmouseleave="this.style.background='#c6282810'" title="ลบวัตถุดิบ">✕</button>
         </td>`;
     tbody.appendChild(tr);
+    if (ingId) tr.dataset.ingId = ingId;
 }
 
 function openIngSelect(tr) {
@@ -461,7 +467,7 @@ function pickIng(ing) {
         editRowTarget.dataset.ingId = ing.id;
         editRowTarget.querySelector('.ing-unit').value = ing.unit || '';
     } else {
-        addRow(ing.name, ing.id, 0, ing.unit || '');
+        addRow(ing.name, ing.id, 0, ing.unit || '', 100.0);
         // Set data attribute on last row
         const rows = document.getElementById('rec-items-body').querySelectorAll('tr');
         if (rows.length) rows[rows.length - 1].dataset.ingId = ing.id;
@@ -475,7 +481,8 @@ async function saveRecipe(e) {
     document.querySelectorAll('#rec-items-body tr').forEach(tr => {
         const ingId = tr.dataset.ingId || null;
         const qty = parseFloat(tr.querySelector('.ing-qty')?.value) || 0;
-        if (ingId && qty > 0) items.push({ingredient: parseInt(ingId), quantity: qty});
+        const yieldVal = parseFloat(tr.querySelector('.ing-yield')?.value) || 100.0;
+        if (ingId && qty > 0) items.push({ingredient: parseInt(ingId), quantity: qty, yield_percent: yieldVal});
     });
 
     const data = {

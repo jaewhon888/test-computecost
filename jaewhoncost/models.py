@@ -93,6 +93,8 @@ class RecipeItem(models.Model):
     recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='items')
     ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     quantity = models.DecimalField(max_digits=10, decimal_places=4)
+    yield_percent = models.DecimalField(max_digits=5, decimal_places=1, default=100.0,
+        verbose_name='Yield (%)', help_text='เปอร์เซ็นต์ Yield ของวัตถุดิบนี้ (100% = ไม่มีเศษ)')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

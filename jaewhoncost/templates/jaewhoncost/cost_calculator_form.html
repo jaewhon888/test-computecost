@@ -440,6 +440,7 @@ body { font-family: 'Prompt', sans-serif; }
             <th>วัตถุดิบ</th>
             <th class="text-center">จำนวน</th>
             <th class="text-center">หน่วย</th>
+            <th class="text-center">Yield %</th>
             <th class="text-right">ราคา/หน่วย</th>
             <th class="text-right">ต้นทุน</th>
           </tr>
@@ -1081,10 +1082,10 @@ function displaySingleResult(data) {
     const detailBody = document.getElementById('single-detail-body');
     const detailFoot = document.getElementById('single-detail-foot');
     let html = data.items.map(it =>
-      `<tr><td>${it.ingredient_name}</td><td class="text-center">${it.quantity}</td><td class="text-center">${it.unit}</td><td class="text-right">${fmt(it.price_per_unit)}</td><td class="text-right" style="font-weight:600;">${fmt(it.cost)}</td></tr>`
+      `<tr><td>${it.ingredient_name}</td><td class="text-center">${it.quantity}</td><td class="text-center">${it.unit}</td><td class="text-center">${it.yield_percent || 100}%</td><td class="text-right">${fmt(it.price_per_unit)}</td><td class="text-right" style="font-weight:600;">${fmt(it.cost)}</td></tr>`
     ).join('');
     detailBody.innerHTML = html;
-    detailFoot.innerHTML = `<tr><td colspan="4" class="text-right">รวมวัตถุดิบ:</td><td class="text-right" style="font-weight:700;">${fmt(data.total_ingredient_cost)}</td></tr>`;
+    detailFoot.innerHTML = `<tr><td colspan="5" class="text-right">รวมวัตถุดิบ:</td><td class="text-right" style="font-weight:700;">${fmt(data.total_ingredient_cost)}</td></tr>`;
   }
 
   // Calculation Steps

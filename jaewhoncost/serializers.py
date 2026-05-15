@@ -33,7 +33,7 @@ class RecipeItemSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = RecipeItem
-        fields = ['id', 'recipe', 'ingredient', 'ingredient_name', 'ingredient_unit', 'quantity']
+        fields = ['id', 'recipe', 'ingredient', 'ingredient_name', 'ingredient_unit', 'quantity', 'yield_percent']
 
 class RecipeSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(source='branch.name', read_only=True)
