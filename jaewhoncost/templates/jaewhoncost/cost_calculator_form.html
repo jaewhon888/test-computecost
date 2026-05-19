@@ -220,10 +220,88 @@ body { font-family: 'Prompt', sans-serif; }
 /* ═══════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════ */
+
+/* Main row grid (selection table + settings) */
+.main-row-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+
+/* All-filters bar */
+.all-filters-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Mobile card view for all-results */
+.mobile-cards { display: none; }
+.mobile-card-item {
+  background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 12px;
+  border: 1px solid #f0f0f0; box-shadow: 0 1px 6px rgba(0,0,0,0.05);
+}
+.mobile-card-item .mc-name {
+  font-size: 14px; font-weight: 600; color: #1B3A57; margin-bottom: 8px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.mobile-card-item .mc-row {
+  display: flex; justify-content: space-between; padding: 4px 0;
+  font-size: 12px; color: #555; border-bottom: 1px solid #f8f8f8;
+}
+.mobile-card-item .mc-row:last-child { border-bottom: none; }
+.mobile-card-item .mc-val { font-weight: 600; color: #1B3A57; }
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .main-row-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
+  .main-row-grid { grid-template-columns: 1fr; gap: 16px; }
   .charts-grid { grid-template-columns: 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
   .overhead-grid { grid-template-columns: 1fr 1fr; }
+  .toolbar { flex-direction: column; gap: 10px; }
+  .toolbar > * { min-width: 100% !important; }
+  .all-filters-bar { flex-direction: column; gap: 8px; }
+  .all-filters-bar > * { min-width: 100% !important; }
+
+  /* Show mobile cards, hide table for all-results */
+  #all-results-tbl { display: none !important; }
+  .mobile-cards { display: block !important; }
+
+  /* Touch-friendly targets */
+  .btn { padding: 10px 18px; font-size: 14px; min-height: 42px; }
+  .btn-sm { padding: 8px 14px; font-size: 13px; min-height: 38px; }
+  .chk-box { width: 22px; height: 22px; }
+  .tab-btn { padding: 10px 18px; font-size: 14px; min-height: 42px; }
+  .form-select, .form-input, .search-input { font-size: 16px; min-height: 44px; }
+  .data-table td, .data-table th { padding: 12px 8px; }
+
+  /* Card adjustments */
+  .card { padding: 14px; }
+
+  /* Single result detail table - stack on mobile */
+  #single-detail-tbl th:nth-child(n+4),
+  #single-detail-tbl td:nth-child(n+4) { display: none; }
+  #single-detail-tbl th:first-child,
+  #single-detail-tbl td:first-child { font-size: 13px; }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .overhead-grid { grid-template-columns: 1fr; }
+  .card { padding: 12px; border-radius: 12px; }
+  .data-table { font-size: 12px; }
+  .data-table th, .data-table td { padding: 10px 6px; }
+  .form-label { font-size: 11px; }
+  .overhead-item input { font-size: 16px; }
+}
+
+/* Print styles */
+@media print {
+  .sidebar, .hamburger-btn, .sidebar-overlay, .top-bar, #toast-container,
+  .tab-bar, .toolbar, #selection-bar, .btn, .all-filters-bar { display: none !important; }
+  .main-content { margin: 0; padding: 0; }
+  .content { padding: 10px; background: white; }
+  .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; page-break-inside: avoid; }
+  .data-table { font-size: 11px; }
+  .data-table th, .data-table td { padding: 6px 8px; }
+  .main-row-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
 </style>
 {% endblock %}
@@ -301,10 +379,10 @@ body { font-family: 'Prompt', sans-serif; }
 <!-- ═══════════════════════════════════════════
      MAIN ROW: Selection Table + Settings
      ═══════════════════════════════════════════ -->
-<div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; margin-bottom: 24px;">
+<div class="main-row-grid" style="margin-bottom: 24px;">
 
   <!-- LEFT: MENU / RECIPE SELECTION TABLE -->
-  <div class="card" style="padding: 16px;">
+  <div class="card main-row-left" style="padding: 16px;">
     <div class="tab-bar">
       <button class="tab-btn active" onclick="showRecipeTab()" id="btn-recipe-tab">🍽️ เลือกสูตร</button>
       <button class="tab-btn" onclick="showMenuTab()" id="btn-menu-tab">📋 เลือกเมนู</button>
@@ -354,7 +432,7 @@ body { font-family: 'Prompt', sans-serif; }
     </div>
 
     <!-- Selection Summary Bar -->
-    <div id="selection-bar" style="display:none; margin-top:12px; padding:12px 16px; background:#f8f9fa; border-radius:12px; display:none; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div id="selection-bar" style="display:none; margin-top:12px; padding:12px 16px; background:#f8f9fa; border-radius:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
       <div style="font-size:13px; color:#555;">
         เลือก <strong id="sel-count" style="color:#D4AF37;">0</strong> รายการ
         <span id="sel-items-text" style="margin-left:8px; font-size:11px; color:#999;"></span>
@@ -368,7 +446,7 @@ body { font-family: 'Prompt', sans-serif; }
   </div>
 
   <!-- RIGHT: SETTINGS -->
-  <div class="card" style="padding: 16px;">
+  <div class="card main-row-right" style="padding: 16px;">
     <div class="card-title" style="margin-bottom:14px;">⚙️ ตั้งค่าการคำนวณ</div>
 
     <div class="settings-grid">
@@ -471,15 +549,15 @@ body { font-family: 'Prompt', sans-serif; }
   </div>
 
   <!-- Filters -->
-  <div style="display:flex; gap:10px; margin-bottom:14px;">
-    <input type="text" id="filter-all-text" class="search-input" placeholder="ค้นหาเมนู..." oninput="filterAllResults()" style="flex:1;">
-    <select id="filter-all-status" class="form-select" style="width:160px;" onchange="filterAllResults()">
+  <div class="all-filters-bar" style="margin-bottom:14px;">
+    <input type="text" id="filter-all-text" class="search-input" placeholder="ค้นหาเมนู..." oninput="filterAllResults()" style="flex:1; min-width:150px;">
+    <select id="filter-all-status" class="form-select" style="min-width:140px;" onchange="filterAllResults()">
       <option value="">สถานะทั้งหมด</option>
       <option value="good">🟢 กำไรดี</option>
       <option value="ok">🟠 ปานกลาง</option>
       <option value="bad">🔴 ขาดทุน</option>
     </select>
-    <select id="filter-all-branch" class="form-select" style="width:160px;" onchange="filterAllResults()">
+    <select id="filter-all-branch" class="form-select" style="min-width:130px;" onchange="filterAllResults()">
       <option value="">ทุกสาขา</option>
     </select>
   </div>
@@ -503,6 +581,9 @@ body { font-family: 'Prompt', sans-serif; }
       <tfoot id="all-results-foot"></tfoot>
     </table>
   </div>
+
+  <!-- Mobile Card View (hidden on desktop, shown on mobile) -->
+  <div id="all-results-cards" class="mobile-cards" style="display:none;"></div>
 </div>
 
 <!-- ═══════════════════════════════════════════
@@ -1193,6 +1274,58 @@ function renderAllTable(items) {
     <td class="text-right" style="color:${totalProfit>=0?'#2e7d32':'#c62828'};">${fmt(totalProfit)}</td>
     <td colspan="3"></td>
   </tr>`;
+
+  // Also render mobile card view
+  renderMobileCards(items);
+}
+
+// ═══════════════════════════════════════════
+// MOBILE CARD VIEW
+// ═══════════════════════════════════════════
+function renderMobileCards(items) {
+  const container = document.getElementById('all-results-cards');
+  if (!container) return;
+
+  let totalSell=0, totalCost=0, totalProfit=0;
+  items.forEach(r => {
+    totalSell += r.actual_selling_price || 0;
+    totalCost += r.total_cost_with_overhead || 0;
+    totalProfit += r.actual_profit || 0;
+  });
+
+  let html = items.map(r => {
+    const profit = r.actual_profit || 0;
+    const fcp = r.actual_food_cost_percent || 0;
+    let badge;
+    if (profit <= 0) badge = '<span class="status-badge badge-bad">🔴 ขาดทุน</span>';
+    else if (fcp > 40) badge = '<span class="status-badge badge-bad">🔴 FC สูง</span>';
+    else if (fcp > 30) badge = '<span class="status-badge badge-ok">🟠 ปานกลาง</span>';
+    else badge = '<span class="status-badge badge-good">🟢 ดี</span>';
+
+    return `<div class="mobile-card-item">
+      <div class="mc-name">
+        <span>${r.menu_name||r.recipe_name||'-'}</span>
+        ${badge}
+      </div>
+      <div class="mc-row"><span>ต้นทุนวัตถุดิบ</span><span class="mc-val">${fmt(r.total_ingredient_cost)}</span></div>
+      <div class="mc-row"><span>Overhead</span><span class="mc-val">${fmt(r.total_overhead)}</span></div>
+      <div class="mc-row" style="font-weight:600;"><span>ต้นทุนรวม</span><span class="mc-val">${fmt(r.total_cost_with_overhead)}</span></div>
+      <div class="mc-row"><span>ราคาขาย</span><span class="mc-val">${fmt(r.actual_selling_price)}</span></div>
+      <div class="mc-row" style="color:${profit>=0?'#2e7d32':'#c62828'};"><span>กำไร</span><span class="mc-val">${fmt(profit)} (${(r.actual_profit_percent||0).toFixed(1)}%)</span></div>
+      <div class="mc-row"><span>Food Cost %</span><span class="mc-val">${fcp.toFixed(1)}%</span></div>
+      <div class="mc-row"><span>ราคาแนะนำ</span><span class="mc-val">${fmt(r.suggested_price)}</span></div>
+    </div>`;
+  }).join('');
+
+  // Summary card
+  html += `<div class="mobile-card-item" style="background:#f8f9fa; border:2px solid #D4AF37;">
+    <div class="mc-name" style="font-size:15px;">📊 รวม ${items.length} เมนู</div>
+    <div class="mc-row" style="font-weight:700;"><span>ต้นทุนรวม</span><span class="mc-val">${fmt(totalCost)}</span></div>
+    <div class="mc-row" style="font-weight:700;"><span>ยอดขายรวม</span><span class="mc-val">${fmt(totalSell)}</span></div>
+    <div class="mc-row" style="font-weight:700;color:${totalProfit>=0?'#2e7d32':'#c62828'};"><span>กำไรรวม</span><span class="mc-val">${fmt(totalProfit)}</span></div>
+  </div>`;
+
+  container.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════
